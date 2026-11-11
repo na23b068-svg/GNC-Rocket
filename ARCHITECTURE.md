@@ -70,12 +70,11 @@ from gnc.sim import SimConfig, simulate
 cfg = SimConfig(...)                      # dataclass, all fields defaulted
 res = simulate(rocket, cfg, controller=None)   # controller=None -> passive, gimbal fixed at 0
 ```
-`SimConfig` fields (at least): `dt` (integration step), `t_max`, `stop_at` ("apogee" | "ground" | "intercept"),
+`SimConfig` fields (at least): `dt` (integration step), `t_max`, `stop_at` ("apogee" | "ground"),
 `wind` (steady ENU vector m/s) + `gust` settings, `thrust_misalignment_rad` (2-vector bias),
 `sensor_noise_scale` (multiplies all sensor std-devs, 0 → noiseless), per-sensor std overrides,
 `actuator_tau_s` (first-order servo lag), `actuator_rate_limit_rad_s`, `actuator_delay_s`, `estimation_delay_s`,
-`gimbal_limit_rad`, `seed`, `recovery` (bool: drogue at apogee, main at 300 m AGL, for passive full-flight plots),
-`target` (optional callable t -> ENU position, for intercept stop condition / logging).
+`gimbal_limit_rad`, `seed`, `recovery` (bool: drogue at apogee, main at 300 m AGL, for passive full-flight plots).
 
 **Controller protocol** (implemented by gnc-designer in `gnc/flight_computer.py`, called by `simulate` at `controller.dt`):
 ```python
@@ -99,30 +98,45 @@ logging/evaluation**; controllers must not use it for feedback unless `cfg.perfe
 `results/index.json` = `{"demos": ["passive.json", ...]}` (display order). Each `results/<demo>.json`:
 ```jsonc
 {
-  "id": "pn_intercept", "group": "Target tracking", "title": "Proportional Navigation intercept",
+  "id": "los_path", "group": "Path following", "title": "LOS waypoint path following",
   "description": "1-3 short paragraphs, plain text",
   "variants": [{
     "id": "nominal", "label": "No disturbance",
     "t": [],                                             // common time base, downsampled (~25 Hz)
     "rocket": {"pos": [[x,y,z]], "quat": [[w,x,y,z]],    // truth; may be null for analysis-only demos
                "pos_est": [[x,y,z]]},                    // optional, navigation estimate
-    "objects": [{"name": "Target", "kind": "target", "pos": [[x,y,z]]},          // target: time-aligned with t
-                {"name": "Waypoints", "kind": "waypoints", "pos": [[x,y,z]]},    // static points
+    "objects": [{"name": "Waypoints", "kind": "waypoints", "pos": [[x,y,z]]},    // static points
                 {"name": "Reference path", "kind": "path", "pos": [[x,y,z]]}],  // static polyline
     "events": [{"t": 0.0, "label": "Rail exit"}],
-    "plots": [{"id": "range", "title": "Range to target", "xlabel": "t [s]", "ylabel": "m",
-               "series": [{"name": "range", "x": [], "y": [], "mode": "lines"}]}],
-    "metrics": {"Miss distance [m]": 0.0},
+    "plots": [{"id": "xte", "title": "Cross-track error", "xlabel": "t [s]", "ylabel": "m",
+               "series": [{"name": "cross-track", "x": [], "y": [], "mode": "lines"}]}],
+    "metrics": {"RMS cross-track error [m]": 0.0},
     "tables": [{"title": "Controllability", "columns": ["..."], "rows": [["..."]]}],
     "notes": "optional plain text"
   }]
 }
 ```
+Optional variant field `"scene"` (lets the same dashboard draw non-launch-site scenes; absent = launch-site defaults):
+```jsonc
+"scene": {"frame": "ENU" | "LVLH" | "LAUNCH",          // label only
+          "axis_labels": ["East [m]", "North [m]", "Up [m]"],
+          "views2d": [{"title": "Side view", "x": "downrange" | 0 | 1 | 2, "y": 0 | 1 | 2}],   // axis indices into pos
+          "ground": true,                              // draw z = 0 ground plane in 3D
+          "glyph": "rocket" | "spacecraft",
+          "glyph_length_m": 40}
+```
+Extra object kinds: `"moving"` (pos time-aligned with `t`, drawn as trail + current-time marker) and
+`"sphere"` (`center` [x,y,z] + `radius`, drawn as a translucent wireframe sphere, e.g. a keep-out zone).
+
 Dashboard (`viz/`): `python -m viz.build_dashboard` reads `results/` and writes **one self-contained HTML file**
 `GNC_Dashboard.html` (plotly.js embedded, works offline) with: demo selector, variant selector, a **2D/3D toggle**
-(2D = altitude-vs-downrange side view + ground track; 3D = 3D scene with trajectory, objects and an animated rocket
+(2D = altitude-vs-downrange side view + ground track; 3D = 3D scene with trajectory, waypoints/path and an animated rocket
 oriented by `quat`), a time slider / play button, and the `plots`, `metrics`, `tables` panels.
 
 ## Testing
 Every module gets pytest tests under `tests/`. `.venv/bin/pytest -q` must pass from the repo root.
 Independent checker agents will run and extend these tests after each worker finishes.
+
+## Scope note
+Rocket moving-target intercept (PN / pursuit of a moving target) is **out of scope** for this vehicle and must not be
+implemented anywhere in this repo. Problem statement (i) of the brief is pending a decision by the user.

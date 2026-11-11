@@ -1,0 +1,18 @@
+; Placeholder M-class motor for the sim-core stand-in rocket (NOT a real certified motor).
+; ~7000 Ns total impulse, ~4.5 s burn, 98 mm. Replaced by data/motor.eng from OpenRocket.
+M1556-PH 98 1000 P 3.750 6.900 Placeholder
+0.040 1676.1
+0.100 2127.4
+0.250 1933.9
+0.500 1830.8
+1.000 1779.3
+1.500 1740.6
+2.000 1701.9
+2.500 1650.3
+3.000 1585.8
+3.500 1508.4
+3.900 1418.2
+4.150 902.5
+4.300 425.5
+4.420 128.9
+4.500 0.0

@@ -1,0 +1,23 @@
+{
+  "name": "PLACEHOLDER 6-in M-class TVC rocket (sim-core stand-in; replaced by data/rocket_params.json)",
+  "length_m": 3.30, "diameter_m": 0.1524, "reference_area_m2": 0.018242,
+  "motor": {"designation": "M1556-PH (placeholder)", "manufacturer": "Placeholder", "eng_file": "data/placeholder_motor.eng",
+            "total_impulse_Ns": 7000.0, "burn_time_s": 4.5, "propellant_mass_kg": 3.75, "motor_total_mass_kg": 6.9},
+  "mass": {"dry_kg": 18.25, "wet_kg": 22.00,
+           "cg_dry_m": 1.84, "cg_wet_m": 1.95,
+           "Ixx_dry": 0.072, "Ixx_wet": 0.080,
+           "Iyy_dry": 16.8, "Iyy_wet": 19.0},
+  "gimbal_station_m": 3.25,
+  "aero": {"mach":         [0.0,  0.3,  0.6,  0.8,  0.9,  1.0,  1.1,  1.2,  1.5,  2.0],
+           "cd_power_off": [0.48, 0.45, 0.44, 0.47, 0.52, 0.64, 0.66, 0.63, 0.55, 0.47],
+           "cd_power_on":  [0.42, 0.39, 0.38, 0.41, 0.46, 0.58, 0.60, 0.57, 0.49, 0.42],
+           "cn_alpha":     [10.5, 10.6, 11.0, 11.6, 12.0, 12.4, 12.0, 11.4, 10.0, 8.5],
+           "cp_m":         [2.34, 2.34, 2.35, 2.37, 2.39, 2.42, 2.40, 2.36, 2.30, 2.25],
+           "cmq": -800.0, "clp": -15.0,
+           "damping_convention": "M_pitch = qbar*S*d*cmq*(q*d/(2V)); L_roll = qbar*S*d*clp*(p*d/(2V))"},
+  "payload": {"mass_kg": 4.0, "station_m": 1.00},
+  "launch": {"lat_deg": 31.99, "lon_deg": -102.08, "elevation_m": 850.0,
+             "rail_length_m": 5.4864, "rail_angle_deg": 6.0, "rail_azimuth_deg": 90.0},
+  "openrocket_reference": {"apogee_m_agl": 0.0, "max_velocity_mps": 0.0, "max_mach": 0.0,
+                           "off_rail_velocity_mps": 0.0, "stability_cal_off_rail": 0.0, "time_to_apogee_s": 0.0}
+}
