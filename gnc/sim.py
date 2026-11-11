@@ -4,7 +4,8 @@
 
 Per step k (time t): k1 = f(t, x, u_act) is evaluated and logged; sensors due at t are sampled (using the
 k1 acceleration); if the controller is due it receives `meas` and its command enters the actuator chain
-(delay -> limit -> first-order lag -> rate limit), which takes effect from the next step (1 dt latency);
+(delay -> limit -> first-order lag -> rate limit); a command issued at t reaches the actuator input at
+t + actuator_delay_s + dt (the extra dt is the zero-order-hold step);
 then x is advanced with RK4 holding u_act constant over the step (zero-order hold).
 """
 import math
@@ -118,7 +119,7 @@ def simulate(rocket, cfg=None, controller=None):
         else:
             xd, aux = _core(t, x, u_act, rocket, env)
             k1 = np.array(xd)
-        T_.append(t); X_.append(x); UC_.append(u_cmd); UA_.append(u_act); AUX_.append(aux)
+        T_.append(t); X_.append(x); UA_.append(u_act); AUX_.append(aux)
 
         new = sensors.step(t, x, aux[7:10])
         for k, v in new.items():
@@ -133,15 +134,15 @@ def simulate(rocket, cfg=None, controller=None):
                 buf, val, ts = buffers[k], None, None
                 while buf and buf[0][0] <= t - cfg.estimation_delay_s + eps:
                     ts, val = buf.popleft()
+                    if k == "imu_accel" and t_ld is None and val[0] > cfg.launch_detect_accel_g * G0:
+                        t_ld = ts
                 meas[k] = val
-                if k == "imu_accel" and t_ld is None and val is not None \
-                        and val[0] > cfg.launch_detect_accel_g * G0:
-                    t_ld = ts
             meas["t_launch_detect"] = t_ld
             meas["truth"] = x.copy()
             u_cmd = np.asarray(controller.update(t, meas), float).reshape(2)
             cmd_queue.append((t, u_cmd))
             t_next_ctrl += controller.dt
+        UC_.append(u_cmd)  # logged after the update so u_cmd[k] is the command issued at t[k]
 
         x_old = x
         x = _rk4(rail if phase == "rail" else free, t, x, dt, k1)
@@ -149,7 +150,8 @@ def simulate(rocket, cfg=None, controller=None):
         t_new = t + dt
 
         if controller is not None:  # actuator: delay -> clip -> lag -> rate limit -> clip (for next step)
-            while len(cmd_queue) > 1 and cmd_queue[1][0] + cfg.actuator_delay_s <= t_new + eps:
+            # a command issued at t_c reaches the actuator input at t_c + actuator_delay_s + dt
+            while len(cmd_queue) > 1 and cmd_queue[1][0] + cfg.actuator_delay_s + dt <= t_new + eps:
                 cmd_queue.popleft()
             target = np.clip(cmd_queue[0][1], -lim, lim)
             du = target - u_act

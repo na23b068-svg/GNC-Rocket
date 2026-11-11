@@ -120,7 +120,7 @@ def rail_derivatives(t, x, u, rocket, env, rail_dir):
     out = np.zeros(13)
     out[0:3] = (s * rx, s * ry, s * rz)
     out[3:6] = (a * rx, a * ry, a * rz)
-    return out, aux
+    return out, aux[:7] + (out[3], out[4], out[5])  # constrained accel -> IMU sees the rail/pad reaction
 
 
 def aero_state(t, x, rocket, env):

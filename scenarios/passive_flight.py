@@ -157,7 +157,7 @@ def figure_openrocket(res, orc):
     plt.close(fig)
 
 
-def variant_json(vid, label, res, extra_plots=(), extra_metrics=None):
+def variant_json(vid, label, res, notes, extra_plots=(), extra_metrics=None):
     t, pos, q = _resample(res)
     tt, ev = res["t"], res["events"]
     asc = tt <= ev.get("apogee", tt[-1])
@@ -185,7 +185,7 @@ def variant_json(vid, label, res, extra_plots=(), extra_metrics=None):
             "objects": [],
             "events": [{"t": round(float(v), 3), "label": LABELS.get(k, k)} for k, v in sorted(ev.items(),
                                                                                             key=lambda kv: kv[1])],
-            "plots": plots, "metrics": {**metrics(res), **(extra_metrics or {})}}
+            "plots": plots, "metrics": {**metrics(res), **(extra_metrics or {})}, "notes": notes}
 
 
 def _mark_events(ax, ev, tmax=None):
@@ -297,9 +297,8 @@ def main():
                        "The 'wind' variant adds a 6 m/s wind from the East at 10 m with 1/7 power-law shear, "
                        "Gauss-Markov turbulence (1.5 m/s) and a 5 m/s 1-cos side gust at t = 3 s: the "
                        "fin-stabilised rocket weathercocks into the wind and then drifts downwind under canopy.",
-        "variants": [variant_json(vid, label, res, *((or_plots, or_metrics) if vid == "nominal" else ()))
+        "variants": [variant_json(vid, label, res, notes, *((or_plots, or_metrics) if vid == "nominal" else ()))
                      for vid, label, res in runs],
-        "notes": notes,
     }
     (RES / "passive.json").write_text(json.dumps(out, separators=(",", ":")))
     if orc is not None:

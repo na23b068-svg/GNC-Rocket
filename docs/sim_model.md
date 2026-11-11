@@ -68,7 +68,8 @@ controllable (single gimbal) and is only passively damped.
   component + drag); **rail exit** when the travelled distance reaches the rail length (5.4864 m).
 * **Actuator chain** (controller only): command → transport delay → clip to gimbal limit → first-order lag
   $\tau$ (exact discretisation) → rate limit → clip. $u$ is held constant over each RK4 step; a command computed
-  at $t$ acts from $t+\Delta t$.
+  at $t$ reaches the actuator input at $t + D + \Delta t$ ($D$ = `actuator_delay_s`; the extra $\Delta t$ is the
+  zero-order-hold step).
 * **Controller** called at `controller.dt` from $t=0$ with the `meas` dict (latest new sample per sensor since the
   last call, delivered `estimation_delay_s` after it was taken, `None` if none).
 * **Events**: liftoff, rail_exit, burnout, apogee ($v_z$ sign change, interpolated), drogue (= apogee),
@@ -91,7 +92,9 @@ streams per sensor (deterministic for a given `seed`).
 | GPS velocity | $v$ (ENU) | 0.15 m/s /axis | 10 Hz | u-blox M8/M9 |
 | Magnetometer | $R^T b$, $b$ unit field (decl. 9.5° E, incl. 58°) | 0.005 /axis, re-normalised | 50 Hz | LIS3MDL / MMC5983 |
 
-`meas["t_launch_detect"]` is the time of the first delivered accelerometer sample with $f_x > 2g$.
+`meas["t_launch_detect"]` is the time of the first delivered accelerometer sample with $f_x > 2g$ (all samples
+since the previous controller call are scanned). On the pad and rail the accelerometer includes the rail/pad
+reaction (reads $+g$ along up at rest).
 
 ## Validation
 
