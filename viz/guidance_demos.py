@@ -11,7 +11,7 @@ from gnc.guidance import (
     steer_toward,
 )
 
-AGGRESSIVE_WP = [[0, 0, 0], [6, 0, 40], [6, 10, 100], [0, 10, 180], [-25, 60, 780]]
+from scenarios.common import AGGRESSIVE_WP
 
 
 def _vel_to_quat(v):

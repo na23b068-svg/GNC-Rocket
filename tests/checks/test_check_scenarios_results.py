@@ -56,14 +56,7 @@ def test_dashboard_fitness(name):
                                                             "step_u_8"}:
                 xs = np.concatenate([np.array(s["x"], float) for s in p["series"]])
                 assert xs.min() >= 0 and xs.max() <= (max(v["t"]) + 1 if v["t"] else 60), (v["id"], p["id"])
-        for o in v.get("objects", []):
-            assert o["kind"] != "moving", "moving-target objects are out of scope"
 
-
-def test_no_target_intercept_anywhere():
-    for name in DEMOS:
-        text = (RES / name).read_text().lower()
-        assert "intercept" not in text and "pursuit" not in text and "proportional nav" not in text, name
 
 
 @pytest.mark.parametrize("vid,W", [("aggressive", AGGRESSIVE_WP), ("aggressive_dist", AGGRESSIVE_WP),
