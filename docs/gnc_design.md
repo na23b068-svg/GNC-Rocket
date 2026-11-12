@@ -11,6 +11,7 @@ apogee, Midland TX, 18 ft rail at 6 deg toward East. All numbers below are from 
 | Linearise nonlinear dynamics about operating points | `gnc/linearize.py` (numeric error-state Jacobian + analytic model) | 3 |
 | Controllability / observability checks | `gnc/analysis.py::rank_test, gramian` | 4 |
 | PID tuned by pole placement, transient specs, with/without disturbance | `gnc/pid.py::place_pid, GainSchedule`; `analysis.closed_loop` | 5 |
+| LQR comparison (additional) | `gnc/lqr.py` | 10 |
 | Closed loop with estimation & actuation delay | `analysis.loop_tf, margins, delay_sweep, critical_delay` (Pade) | 6 |
 | Luenberger vs Kalman under Gaussian noise, varying variance | `gnc/observers.py`; nav filter in `gnc/flight_computer.py` | 7 |
 | LOS guidance, path following of waypoints, with/without disturbance | `gnc/guidance.py::LOSPathGuidance` | 8 |
@@ -80,39 +81,55 @@ a0 = -q'_theta (weathercock stiffness, > 0) and b = q'_delta (< 0: positive delt
 "down-range-negative").
 
 **Operating points** (`operating_points`): 9 points from rail exit to the TVC end on the passive, noiseless,
-calm-air nominal trajectory. Open-loop eigenvalues of the pitch plane:
+calm-air nominal trajectory. Eigenvalues of the frozen pitch-plane model, in the raw states [z_b, w, theta, q]
+and in AoA form [z_b, w/V, theta, q] (`linearize.aoa_form`):
 
-| t [s] | 0.37 | 1.27 | 2.17 | 3.07 | 3.97 |
-|---|---|---|---|---|---|
-| short period | -1.0 +- 2.3j | -1.3 +- 7.2j | -1.8 +- 13.6j | -2.2 +- 19.3j | -2.4 +- 23.2j |
-| drift mode | +1.56 | +0.91 | +0.50 | +0.23 | +0.06 |
-| lateral position | 0 | 0 | 0 | 0 | 0 |
+| t [s] | 0.37 | 0.82 | 1.27 | 2.17 | 3.07 | 3.97 |
+|---|---|---|---|---|---|---|
+| short period | -1.0 +- 2.3j | -1.1 +- 4.5j | -1.3 +- 7.2j | -1.8 +- 13.6j | -2.2 +- 19.3j | -2.4 +- 23.2j |
+| real mode, frozen w-model | +1.56 | +1.22 | +0.91 | +0.50 | +0.23 | +0.06 |
+| Vdot / V | 2.81 | 1.29 | 0.88 | 0.47 | 0.20 | 0.03 |
+| real mode, AoA form | +0.21 | +0.13 | +0.084 | +0.048 | +0.037 | +0.032 |
+| g / V | 0.32 | 0.14 | 0.087 | 0.049 | 0.037 | 0.033 |
+| lateral position | 0 | 0 | 0 | 0 | 0 | 0 |
 
-The weakly unstable real "drift" mode is the thrusting weathercock divergence. Lateral velocity creates AoA, the
-fins turn the nose into the relative wind, and the tilted thrust then accelerates the rocket further sideways.
-It is fastest at low speed, which is why closing the attitude loop right at rail exit matters.
+**The positive real eigenvalue of the frozen w-model is mostly a frozen-coefficient artefact, not a physical
+divergence.** Freezing the coefficients holds a lateral *velocity* w fixed while the boost accelerates the
+rocket (Vdot/V up to 2.8 /s at rail exit). In reality the same w becomes a shrinking AoA w/V. Rewriting the
+state as w/V adds the time-varying term d(w/V)/dt = w'/V - (Vdot/V)(w/V). The eigenvalue then drops to
+0.21 -> 0.03 /s, which is approximately g/V. That residual is the genuine but slow gravity-turn divergence of
+the flight-path angle: near-vertical flight is an unstable equilibrium with rate g cos(phi)/V. Its time
+constant is 5 s to 30 s, longer than the boost. An independent nonlinear check (`tests/checks/`) agrees. Seeded
+along the frozen eigenvector, the nonlinear attitude perturbation stays flat (1e-3 -> 1.9e-3 rad, no further
+growth after 0.5 s), while the frozen model predicts 4.8x growth by 1 s. The short-period pair is the same in
+both forms. The attitude design (section 5) uses only the short-period reduction (a1, a0, b), so it does not
+depend on this mode. The frozen 4-state model is used only as a conservative stability cross-check.
 
 ## 4. Controllability and observability
 
-`analysis.rank_test` computes the Kalman rank with a relative singular-value tolerance of 1e-8 and also reports
-the condition number. Pitch plane, numeric model:
+`analysis.rank_test` computes the Kalman rank on the **block-normalised** Kalman matrix: every block C A^k
+(obsv) or A^k B (ctrb) is scaled to unit norm. This does not change rank or deficient directions, but it removes
+the |A|^k growth. With |A| ~ 500 at max qbar the raw blocks span ~8 orders of magnitude, and an unscaled SVD test
+wrongly gave rank 2 for gyro-only at 3.07 s and later. Numerical rank uses a relative singular-value tolerance
+of 1e-8, and the condition number is reported. Pitch plane, numeric model, all 9 schedule points
+(t = 0.37 ... 3.97 s, tested in `tests/test_gnc_linearize.py`):
 
-| Sensor set (output) | t = 0.4 s | 1.5 s | 3.0 s | 3.9 s | Comment |
-|---|---|---|---|---|---|
-| ctrb (delta_p) | 4 | 4 | 4 | 4 | cond 1.7e2 ... 3.9e4: harder to steer at high qbar |
-| gyro q | 3 | 3 | 3 | 3 | z_b unobservable. theta is observable from q only through the aero stiffness a0 |
-| attitude angle theta | 3 | 3 | 3 | 3 | z_b unobservable |
-| GPS velocity | 3 | 3 | 3 | 3 | z_b unobservable (cond 1e9 to 1e12: only via the air-density gradient) |
-| GPS position | 4 | 4 | 4 | 4 | full |
-| gyro + GPS position | 4 | 4 | 4 | 4 | full (cond 1e2 ... 3e5) |
+| Sensor set (output) | rank at the 9 points | cond (block-normalised) | Comment |
+|---|---|---|---|
+| ctrb (delta_p) | 4 at all | 3 ... 60 | controllable everywhere; harder to steer at high qbar |
+| gyro q | 3 at all | 1e16 ... 3e24 | z_b unobservable. theta is observable from q only through the aero stiffness a0 |
+| attitude angle theta | 3 at all | 3e9 ... 1e13 | z_b unobservable |
+| GPS velocity | 3 (4 at 0.82 s) | 7e7 ... 1e13 | z_b acts only through the air-density gradient, ~8 orders weaker: practically unobservable. At 0.82 s it sits just above the 1e-8 tolerance |
+| GPS position | 4 at all | 1 ... 4 | full |
+| gyro + GPS position | 4 at all | 5 ... 9e2 | full |
 
 Navigation model per axis, [p, v, b_a] with the accelerometer as input (`observers.axis_nav_model`): GPS position
 or baro -> rank 3. GPS velocity only -> rank 2 (position unobservable). Accelerometer only -> rank 0 (pure dead
 reckoning, drift unbounded). Attitude-plane estimator [theta, b_gyro] with the gyro as input
 (`observers.attitude_plane_model`): an attitude reference gives rank 2, gyro alone gives rank 0. Hence the
 magnetometer correction and the rail-averaged gyro bias. Gramians are available in `analysis.gramian`
-(Lyapunov for Hurwitz A, finite-horizon quadrature otherwise, as needed here because of the drift/position
-modes).
+(Lyapunov for Hurwitz A, finite-horizon quadrature otherwise, as needed here because of the gravity-turn and
+lateral-position modes).
 
 ## 5. Attitude control: PID by pole placement
 
@@ -153,16 +170,19 @@ the 20 ms servo lag. DM = smallest loop delay that destabilises the loop (Pade o
 a gain-*reduction* margin.)
 
 **Verification on the full model.** `analysis.plane_pid_closed_loop` closes the PID around the full 4-state plane
-model, which includes the drift mode. Every point is stable: the dominant pair lands near the design (e.g.
--9.1 +- 8.2j at 2.17 s), and the integrator pole merges with the stabilised drift mode into slow, well-damped
-poles (-0.1 ... -1.5). The only pole left at 0 is lateral position, which the guidance loop closes.
+model, including its positive real eigenvalue (the conservative frozen-coefficient one from section 3). Every
+point is stable: the dominant pair lands near the design (e.g. -9.1 +- 8.2j at 2.17 s), and the integrator pole
+merges with that real mode into slow, well-damped poles (-0.1 ... -1.5). The only pole left at 0 is lateral
+position, which the guidance loop closes.
 
 **With and without disturbance.** A step disturbance moment (thrust misalignment, or a wind-induced AoA trim)
 enters as angular acceleration d. The steady-state attitude error is **0 with integral action** and
 d/(a0 + b Kp) without it (`closed_loop(...)["T_dist"]` DC gain: 0 vs 5.6e-3 rad per rad/s^2 at 2.17 s). In
 the 6-DOF sim a 0.57 deg thrust misalignment raises the peak hold error from 0.21 deg to 0.73 deg, and it
-trims out. Step response at 2.17 s with servo lag: 0 % overshoot, 0.97 s settling. Derivative-on-measurement
-and the PI zero shape the response, and the poles are exactly the designed ones.
+trims out. Step response at 2.17 s with servo lag: 0 % overshoot, 0.97 s settling. The designed poles
+(-7.62 +- 7.77j, -4) are placed exactly on the plant model *without* servo lag. Adding the 20 ms lag (a fourth
+pole) moves them to -5.85 +- 1.68j and -20.1 +- 15.3j, still well damped. The response shape also reflects
+derivative-on-measurement and the PI zero.
 
 ## 6. Delays (actuation and estimation)
 
@@ -178,9 +198,14 @@ tau = tau_act + tau_est, with a Pade approximant (`loop_tf(..., delay, pade_orde
 | phase margin [deg] | 74 | 61 | 48 | 34 | 21 | 8 | -5 |
 
 Delay margin PM/w_c agrees with the Pade bisection within 5 % (`tests/test_gnc_pid.py`). The tightest point is
-the end of the boost (33 ms) because wn is highest there. The 6-DOF sim agrees. With 15 ms actuator + 15 ms
-estimation delay the hold error stays at 0.21 deg. With 30 + 30 ms the loop limit-cycles (gimbal saturates,
-attitude-estimate error grows to 1-3 deg).
+the end of the boost (33 ms) because wn is highest there. These continuous-time margins exclude the 100 Hz
+controller's sample-and-hold (~5 ms equivalent delay) and the IMU sample age (up to 5 ms at 200 Hz), together
+~5-8 ms of hidden loop delay. That is why 40 ms of explicit delay already shows strong oscillatory growth.
+The 6-DOF sim (attitude hold, seed 7) agrees. With 15 ms actuator + 15 ms estimation delay the hold error stays
+at 0.21 deg and the late-burn gimbal peak-to-peak is unchanged (0.66 vs 0.65 deg). With 30 + 30 ms, which
+exceeds the margin late in the burn, the oscillation grows from about 3.5 s: gimbal peak 4.8 deg at 3.93 s,
+late-burn peak-to-peak 8.6 deg. The divergence is cut short by the TVC end at 3.97 s. It is not a saturated
+limit cycle.
 
 ## 7. Observers: Luenberger vs Kalman
 
@@ -203,19 +228,24 @@ GPS (pos+vel, 10 Hz) and baro (z, 50 Hz) updates (`observers.nav_model`, ZOH + V
   periodic error map (one GPS period) has spectral radius < 0.99 (tested). Faster baro poles amplified noise
   (2 m/s vertical-velocity RMS).
 
-Noise-variance sweep, 15 s flight, attitude hold, same seed (`sensor_noise_scale` multiplies every std):
+Noise-variance sweep, 15 s flight, attitude hold, seeds 1-3 (`sensor_noise_scale` multiplies every std).
+Absolute RMS values are for seed 1. Ratios (Luenberger / KF) and NIS give the range over seeds 1-3:
 
-| noise scale | KF pos RMS E/N/U [m] | Luen. pos RMS [m] | KF vel RMS [m/s] | Luen. vel RMS [m/s] | KF NIS (6) |
+| noise scale | KF pos RMS E/N/U [m] | Luen. pos RMS E/N/U [m] | pos ratio L/KF E / N / U | vel ratio L/KF E / N / U | KF NIS (6) |
 |---|---|---|---|---|---|
-| 0.5 | 0.10 / 0.12 / 0.04 | 0.21 / 0.18 / 0.34 | 0.06 / 0.06 / 0.07 | 0.05 / 0.03 / 0.06 | 4.5 |
-| 1 | 0.18 / 0.23 / 0.07 | 0.42 / 0.37 / 0.67 | 0.09 / 0.09 / 0.09 | 0.07 / 0.05 / 0.10 | 5.2 |
-| 2 | 0.36 / 0.45 / 0.14 | 0.85 / 0.74 / 1.34 | 0.13 / 0.12 / 0.13 | 0.13 / 0.11 / 0.18 | 5.6 |
-| 4 | 0.71 / 0.89 / 0.27 | 1.70 / 1.47 / 2.68 | 0.18 / 0.18 / 0.17 | 0.24 / 0.22 / 0.37 | 5.9 |
+| 0.5 | 0.10 / 0.09 / 0.05 | 0.20 / 0.19 / 0.30 | 1.3-2.1 / 1.6-2.7 / 5.9-8.8 | 0.48-0.55 / 0.46-0.58 / 1.06-1.22 | 4.5-4.7 |
+| 1 | 0.17 / 0.16 / 0.10 | 0.40 / 0.38 / 0.60 | 1.3-2.3 / 1.7-2.8 / 5.9-8.8 | 0.63-0.70 / 0.61-0.75 / 0.97-1.10 | 5.2-5.4 |
+| 2 | 0.33 / 0.31 / 0.20 | 0.80 / 0.75 / 1.21 | 1.3-2.4 / 1.8-2.9 / 5.9-8.8 | 0.88-0.92 / 0.86-0.97 / 1.18-1.34 | 5.7-5.9 |
+| 4 | 0.65 / 0.61 / 0.41 | 1.60 / 1.50 / 2.42 | 1.3-2.5 / 1.8-2.9 / 6.0-8.9 | 1.22-1.29 / 1.11-1.25 / 1.41-1.86 | 5.9-6.1 |
 
-The KF position error is 2-10x smaller (it weights GPS vs baro vs IMU by their variances, with a time-varying
-gain). Both estimators stay stable at every level and their errors scale linearly with the noise std. The fixed
-Luenberger gain is tuned for nominal noise: it is competitive on velocity at low noise but degrades faster as
-noise grows. The KF adapts through R and P.
+Both estimators stay stable at every level, and their errors scale roughly linearly with the noise std.
+- **Position:** the KF is better on every axis, seed and level, by **1.3x to 8.9x**. The largest gain is
+  vertical, where it weights baro against GPS by their variances. The smallest is East on seed 2, only 1.3x.
+- **Horizontal velocity:** the fixed-gain Luenberger is *better*, by about 2x at 0.5x noise, 1.3-1.6x at
+  nominal noise and 1.1x at 2x noise. Only at 4x noise does the KF win, by 1.1-1.3x.
+- **Interpretation:** together with NIS below 6 at low noise, this says sigma_a = 0.3 is conservative for
+  attitude hold. The KF trusts the IMU-propagated velocity less than it could. The value was kept on purpose
+  as margin for manoeuvring flight, where attitude-error leakage of the thrust is larger, and was not retuned.
 
 ## 8. Guidance: 3D LOS path following
 
@@ -236,28 +266,114 @@ and the commanded nose direction is n = cos(alpha_c) v_hat + sin(alpha_c) a_lat_
 
 Kinematic tests: converges onto a straight line from 47 m off (< 0.5 m), and switches through a 3D dog-leg.
 6-DOF (`tests/test_gnc_flight_computer.py::test_los_path_flight`), path (0,0,0) -> (0,30,300) -> (0,90,900)
-(a northward bend, cross-range to the 6 deg East rail): cross-track RMS 5.2 m nominal, 11 m with 10 m/s wind +
-3 m/s gusts + shear, 4.3 m with 0.57 deg thrust misalignment, 6.4 m with sensor biases. Paths that bend after
+(a northward bend, cross-range to the 6 deg East rail), seed 7: cross-track RMS 5.2 m nominal, 7.1-10.7 m with
+10 m/s wind + 3 m/s gusts + 1/7 shear depending on wind direction, 5.3 m with 0.57 deg thrust misalignment per
+axis, 6.4 m with sensor biases (section 9). Paths that bend after
 ~2.5 s (qbar > 30 kPa) are not flyable: the cross-track error grows once alpha_hold falls to ~2 deg, which is
 the TVC authority limit, not a tuning issue. After `tvc_end_time` the guidance keeps logging, but the vehicle
 coasts ballistically.
 
-## 9. Robustness summary (6-DOF, seed 7, 5 s)
+## 9. Robustness summary
 
-| case | hold: ctrl err max [deg] | hold: gimbal max / sat. frac | LOS path: cross-track RMS [m] |
-|---|---|---|---|
-| nominal | 0.21 | 1.8 deg / 0 | 5.2 |
-| sensor biases (gyro 0.01 rad/s, accel 0.2 m/s^2, mag, GPS 2 m) | 0.20 | 1.7 / 0 | 6.4 |
-| wind 10 m/s + 3 m/s gust + 1/7 shear | 1.73 | 5.0 / 0.25 | 11.0 |
-| thrust misalignment 0.57 deg each axis | 0.73 | 2.0 / 0 | 4.3 |
-| delay 15 + 15 ms | 0.21 | 1.8 / 0 | 5.2 |
-| delay 30 + 30 ms (> delay margin) | 0.92 | 5.0 / limit cycle | 5.3 |
-| 4x sensor noise | 0.21 | 1.8 / 0 | 5.1 |
+6-DOF, simulator at commit 1f3a255, `SimConfig(t_max=4.5, seed=7, ...)`. Path = (0,0,0) -> (0,30,300) ->
+(0,90,900). Wind = 10 m/s steady from the stated direction (vector shown, ENU, blowing *toward*), plus gust
+{std 3 m/s, tau 1.5 s} and 1/7 power-law shear. Misalignment = `thrust_misalignment_rad=(0.01, 0.01)`
+(0.57 deg per axis). Gimbal statistics use the actual (post-servo) gimbal angle between rail exit and the TVC end.
 
-Attitude hold in a crosswind spends authority fighting weathercocking (AoA = wind/V is large at low speed). A
-velocity-vector (guidance) mode is the better choice in wind.
+| case | hold: err max [deg] | hold: gimbal max [deg] / sat. frac | LOS path: gimbal max / sat. frac | LOS path: cross-track RMS [m] |
+|---|---|---|---|---|
+| nominal | 0.21 | 1.7 / 0 | 3.5 / 0 | 5.2 |
+| sensor biases (gyro 0.01 rad/s, accel 0.2 m/s^2, mag 0.02, GPS 2 m) | 0.20 | 1.6 / 0 | 4.7 / 0 | 6.4 |
+| wind (10, 0, 0) toward E | 1.81 | 5.0 / 0.49 | 5.0 / 0.43 | 10.7 |
+| wind (-10, 0, 0) toward W | 1.24 | 5.0 / 0.05 | 5.0 / 0.13 | 7.1 |
+| wind (0, 10, 0) toward N | 1.63 | 5.0 / 0.01 | 5.0 / 0.25 | 8.9 |
+| wind (0, -10, 0) toward S | 2.05 | 5.0 / 0.48 | 5.0 / 0.42 | 9.6 |
+| thrust misalignment (0.01, 0.01) rad | 0.73 | 1.8 / 0 | 3.3 / 0 | 5.3 |
+| delay 15 + 15 ms | 0.21 | 1.8 / 0 | 4.0 / 0 | 5.2 |
+| delay 30 + 30 ms (> late-burn delay margin) | 1.15 | 4.8 / 0 (growing oscillation after 3.5 s) | 5.0 / 0 | 5.3 |
+| 4x sensor noise | 0.21 | 1.7 / 0 | 3.5 / 0 | 5.1 |
 
-## 10. API for scenario scripts
+Attitude hold in a crosswind spends authority fighting weathercocking (AoA = wind/V is large at low speed), and
+the gimbal saturates for up to half of the guided phase. A velocity-vector (guidance) mode is the better choice
+in wind.
+
+## 10. LQR vs pole-placement PID
+
+`gnc/lqr.py`, enabled with `FlightComputer(attitude="lqr")`; the default `"pid"` is unchanged and bit-identical.
+The LQR uses the same operating points and short-period model, augmented with the integral of the attitude
+error: x = [theta, q, xi], xi' = theta - theta_c, delta = -K x, K = R^-1 B^T P from the continuous ARE
+(`ct.lqr`). On this model, state feedback with integral action has exactly the PID structure, with
+derivative on the gyro rate: Kp = K_theta, Kd = K_q, Ki = K_xi. The loop broken at the plant input is therefore
+the same C(s)G(s), and both designs are compared with the same tools (`lqr.compare`, which reuses
+`analysis.closed_loop / margins / critical_delay` with the same 20 ms servo lag). Gain scheduling is the same
+(9 points, linear in time since launch).
+
+**Weights** (Bryson's rule): Q = diag(1/theta_max^2, 1/q_max^2, 1/xi_max^2), R = 1/delta_max^2. The starting
+point theta_max = 1 deg, q_max = 10 deg/s, xi_max = theta_max * 0.5 s, delta_max = 5 deg gave a very fast loop
+(real pole at -74 to -90 rad/s) with only 8-20 ms delay margin under the servo lag. **Final:** theta_max =
+4 deg, q_max = 40 deg/s, xi_max = theta_max * 0.3 s, delta_max = 5 deg (gimbal limit). These maximise the
+worst-case delay margin among the tried weights while keeping >= 43 deg phase margin with lag.
+
+Comparison at every schedule point (servo lag 20 ms in poles, step, PM, GM, DM. "PM no lag" is at the plant
+input without lag. DM = smallest destabilising loop delay. "inf" for DM means > 1 s, the bisection limit):
+
+| t [s] | qbar [kPa] | ctrl | Kp | Ki | Kd | slowest pole Re | overshoot % | settling 2 % [s] | PM deg | PM no lag | GM dB | DM ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0.37 | 0.5 | PID | -0.709 | -1.719 | -0.0998 | -4.20 | 30.3 | 1.03 | 47 | 65 | (-17.8) | 55 |
+| 0.37 | 0.5 | LQR | -1.772 | -4.167 | -0.1964 | -3.59 | 17.2 | 1.09 | 43 | 73 | (-23.1) | 28 |
+| 0.82 | 2.8 | PID | -0.568 | -1.604 | -0.0909 | -4.39 | 19.5 | 0.96 | 52 | 70 | inf | 60 |
+| 0.82 | 2.8 | LQR | -1.666 | -4.167 | -0.1868 | -3.58 | 13.4 | 1.04 | 44 | 75 | inf | 28 |
+| 1.27 | 7.1 | PID | -0.333 | -1.443 | -0.0795 | -5.13 | 2.3 | 0.70 | 61 | 79 | inf | 67 |
+| 1.27 | 7.1 | LQR | -1.492 | -4.167 | -0.1741 | -3.51 | 7.0 | 0.89 | 45 | 77 | inf | 27 |
+| 1.72 | 13.7 | PID | -0.044 | -1.467 | -0.0762 | -5.13 | 0.1 | 0.94 | 75 | 93 | inf | 73 |
+| 1.72 | 13.7 | LQR | -1.248 | -4.167 | -0.1629 | -3.24 | 0.0 | 0.47 | 48 | 80 | inf | 28 |
+| 2.17 | 22.0 | PID | 0.031 | -2.564 | -0.0936 | -5.85 | 0.0 | 0.96 | 74 | 87 | 28.8 | 56 |
+| 2.17 | 22.0 | LQR | -0.978 | -4.167 | -0.1518 | -2.74 | 0.0 | 1.18 | 51 | 83 | inf | 30 |
+| 2.62 | 30.6 | PID | 0.176 | -4.823 | -0.1370 | -6.35 | 0.0 | 0.98 | 72 | 83 | 19.4 | 46 |
+| 2.62 | 30.6 | LQR | -0.649 | -4.167 | -0.1414 | -1.90 | 0.0 | 1.95 | 58 | 87 | inf | 36 |
+| 3.07 | 37.4 | PID | 0.353 | -7.062 | -0.1708 | -5.78 | 0.0 | 0.98 | 70 | 82 | 16.8 | 40 |
+| 3.07 | 37.4 | LQR | -0.472 | -4.167 | -0.1327 | -1.41 | 0.0 | 2.72 | 63 | 91 | inf | inf |
+| 3.52 | 43.2 | PID | 0.553 | -9.363 | -0.2009 | -5.48 | 0.0 | 0.98 | 69 | 80 | 15.5 | 36 |
+| 3.52 | 43.2 | LQR | -0.364 | -4.167 | -0.1261 | -1.10 | 0.0 | 3.53 | 66 | 95 | inf | inf |
+| 3.97 | 47.6 | PID | 1.152 | -17.694 | -0.3486 | -5.35 | 0.0 | 0.98 | 68 | 80 | 14.7 | 33 |
+| 3.97 | 47.6 | LQR | -0.200 | -4.167 | -0.1118 | -0.60 | 0.0 | 6.33 | 81 | 91 | inf | inf |
+
+**Reading the table.**
+- **Margins without lag:** the LQR has the guaranteed >= 60 deg phase margin (73-95 deg here) and infinite
+  upward gain margin at every point (tested).
+- **Low and mid dynamic pressure (<= 2.2 s):** the LQR closes a faster rate loop (|Kd| 2x larger), so with the
+  20 ms servo lag its delay margin is only 27-30 ms, against 55-73 ms for the PID. Bryson weights do not see
+  the lag or the delay.
+- **High dynamic pressure:** the LQR "lets the airframe work". Kp shrinks toward 0 because the fins already
+  provide the stiffness that the cost would otherwise pay for. Margins grow (inf GM, delay margin > 1 s from
+  3.07 s), but the integral mode becomes slow (-0.6 rad/s at 3.97 s, 6.3 s settling). The PID instead pins the
+  dominant poles at wn >= 0.8 sqrt(a0) and settles in ~1 s at every point.
+
+6-DOF, seed 7, t_max 4.5 s (same cases as section 9; error = max attitude-control error in the guided phase,
+effort = integral of |delta_act|^2 dt over the TVC window in rad^2 s):
+
+| case | PID err max [deg] | LQR err max [deg] | PID effort | LQR effort | PID / LQR LOS cross-track RMS [m] |
+|---|---|---|---|---|---|
+| attitude hold, nominal | 0.21 | 0.15 | 6e-4 | 3e-4 | - |
+| hold, misalignment (0.01, 0.01) rad | 0.73 | 0.28 | 1.2e-3 | 6e-4 | - |
+| hold, wind (0, 10, 0) + gust + shear | 1.63 | 0.76 | 1.1e-2 | 6.3e-3 | - |
+| hold, delay 15 + 15 ms | 0.21 | 0.77 | 6e-4 | 2.1e-3 | - |
+| hold, delay 30 + 30 ms | 1.15 | 6.99 (diverges) | 1.6e-3 | 2.6e-2 | - |
+| LOS path, nominal | 3.39 | 3.29 | 5.1e-3 | 1.7e-3 | 5.2 / 4.4 |
+| LOS path, misalignment | 3.33 | 3.27 | 5.9e-3 | 2.2e-3 | 5.3 / 4.4 |
+| LOS path, wind (0, 10, 0) + gust + shear | 3.34 | 3.27 | 2.1e-2 | 1.1e-2 | 8.9 / 7.5 |
+| LOS path, delay 30 + 30 ms | 3.78 | 9.31 | 1.8e-2 | 3.6e-2 | 5.3 / 10.1 |
+
+**Verdict.**
+- **LQR strengths:** it is smoother (about half the gimbal effort) and rejects misalignment and wind better
+  without delay, with 15-18 % lower cross-track error.
+- **LQR weakness:** it is much more delay-sensitive in the early boost. With 15 + 15 ms delay its hold error
+  is already 0.77 deg against 0.21 deg for the PID, and at 30 + 30 ms it diverges while the PID stays bounded.
+- **Choice:** the pole-placement PID stays the default because its delay robustness is the binding
+  requirement (servo + sampling + estimation delays). A natural improvement is an LQR with the servo lag in
+  the design model, or loop-transfer recovery.
+
+## 11. API for scenario scripts
 
 ```python
 from gnc.flight_computer import FlightComputer, design_schedule, tvc_end_time
@@ -265,7 +381,8 @@ fc = FlightComputer(guidance="none" | "los_path", nav="kf" | "luenberger", dt=0.
                     waypoints=None, los_k=1.5, lookahead_m=150.0, lookahead_time=0.0, accept_radius=40.0,
                     gravity_comp=True, a_max=60.0, alpha_max_deg=10.0, hold="rail" | "vertical",
                     zeta=0.7, wn=8.0, p_int=4.0, kappa=0.8, schedule=None, k_mag=0.2,
-                    nav_sigma_a=0.3, nav_sigma_b=0.02, gps_poles=(0.8, 0.85, 0.97), baro_poles=(0.99, 0.992, 0.999))
+                    nav_sigma_a=0.3, nav_sigma_b=0.02, gps_poles=(0.8, 0.85, 0.97), baro_poles=(0.99, 0.992, 0.999),
+                    attitude="pid" | "lqr")
 res = simulate(rocket, SimConfig(...), fc);  fc.log / res["controller_log"]
 ```
 `log` (one entry per 100 Hz step): `t, phase` (0 rail / 1 guided / 2 coast), `pos_est, vel_est, quat_est,
@@ -275,5 +392,6 @@ also logs `wp_index, cross_track, cross_track_h, cross_track_v, along_track, los
 dist_to_wp`. Control effort = sum(u_cmd^2) * dt.
 Analysis helpers: `linearize.operating_points / linearize_at / analytic_plane`, `analysis.rank_test / gramian /
 margins / delay_sweep / critical_delay / closed_loop / plane_pid_closed_loop / step_metrics`,
-`pid.place_pid / poles_from_specs / closed_loop_poles`, `observers.*` (incl. `attitude_plane_model` for an
+`pid.place_pid / poles_from_specs / closed_loop_poles`, `lqr.attitude_lqr / design_lqr_schedule / compare`,
+`linearize.aoa_form`, `observers.*` (incl. `attitude_plane_model` for an
 offline single-plane Luenberger-vs-KF demo), `guidance.kinematic_path_check`.

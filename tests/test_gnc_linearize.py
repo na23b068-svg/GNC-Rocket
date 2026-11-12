@@ -39,15 +39,19 @@ def test_numeric_plane_model_matches_analytic(setup, t, V):
 
 
 def test_operating_points_ctrb_obsv():
+    """Rank conclusions at every gain-schedule point (block-normalised Kalman matrices)."""
+    from gnc.flight_computer import design_schedule
     from gnc.rocket import Rocket
     r = Rocket.load()
-    pts = operating_points(r, [0.5, 2.5])
-    assert pts[1]["flight"]["qbar"] > 10 * pts[0]["flight"]["qbar"]
+    pts = operating_points(r, design_schedule(r)[1]["t"])
+    assert pts[-1]["flight"]["qbar"] > 50 * pts[0]["flight"]["qbar"]
     for p in pts:
         A, B = p["pitch"]["A"], p["pitch"]["B"]
         assert rank_test(A, B, "ctrb")["full"]
-        gyro = rank_test(A, np.array([[0, 0, 0, 1.0]]), "obsv")     # lateral position never observable
-        assert gyro["rank"] == 3 and abs(gyro["deficient_directions"][0][0]) > 0.99
-        assert rank_test(A, np.array([[1.0, 0, 0, 0], [0, 0, 0, 1.0]]), "obsv")["full"]  # + GPS
+        for C in ([[0, 0, 0, 1.0]], [[0, 0, 1.0, 0]]):            # gyro only, attitude only
+            o = rank_test(A, np.array(C), "obsv")                  # lateral position never observable
+            assert o["rank"] == 3 and abs(o["deficient_directions"][0][0]) > 0.99
+        assert rank_test(A, np.array([[1.0, 0, 0, 0], [0, 0, 0, 1.0]]), "obsv")["full"]  # + GPS position
+        assert rank_test(A, np.array([[1.0, 0, 0, 0]]), "obsv")["full"]
         a1, a0, b = p["pitch"]["short_period"]
         assert a0 > 0 and b < 0          # fin-stabilised airframe; positive delta_p pitches nose-down (-q)

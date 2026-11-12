@@ -66,13 +66,17 @@ def test_los_path_flight(rocket):
 
 
 def test_schedule_stabilises_full_plane_model(rocket):
-    """2nd-order PID design closes the loop on the full 4-state plane model (incl. the unstable drift mode)."""
+    """2nd-order PID design closes the loop on the full 4-state frozen plane model at every schedule point.
+    The frozen model's positive real eigenvalue (~Vdot/V) is an artefact of freezing a lateral *velocity*
+    while the boost accelerates the vehicle: in AoA form (w/V with the -Vdot/V term) only a slow residual of
+    order g/V (gravity turn) remains."""
     from gnc.analysis import plane_pid_closed_loop
-    from gnc.linearize import operating_points
+    from gnc.linearize import aoa_form, operating_points
     _, tab = design_schedule(rocket)
-    pts = operating_points(rocket, tab["t"][::2])
-    for i, p in zip(range(0, len(tab["t"]), 2), pts):
-        assert np.linalg.eigvals(p["pitch"]["A"]).real.max() > 0          # open loop: drift divergence
-        ev = np.linalg.eigvals(plane_pid_closed_loop(p["pitch"]["A"], p["pitch"]["B"],
-                                                     tab["Kp"][i], tab["Ki"][i], tab["Kd"][i]))
+    pts = operating_points(rocket, tab["t"])
+    for i, p in enumerate(pts):
+        A, B, f = p["pitch"]["A"], p["pitch"]["B"], p["flight"]
+        Aw, _ = aoa_form(A, B, f["V"], f["Vdot"])
+        assert np.linalg.eigvals(Aw).real.max() < 1.2 * 9.80665 / f["V"] < np.linalg.eigvals(A).real.max()
+        ev = np.linalg.eigvals(plane_pid_closed_loop(A, B, tab["Kp"][i], tab["Ki"][i], tab["Kd"][i]))
         assert np.sort(ev.real)[-2] < -0.05 and ev.real.max() < 1e-4      # only lateral position (~0, density gradient)

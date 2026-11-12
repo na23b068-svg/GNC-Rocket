@@ -1,9 +1,22 @@
 """System analysis helpers returning plain data (lists/floats) ready for results JSON:
 controllability/observability, Gramians, poles/zeros, stability margins, delay (Pade) analysis,
 disturbance rejection of the attitude loop."""
+import functools
+import warnings
+
 import control as ct
 import numpy as np
 import scipy.linalg as sla
+
+
+def _quiet(f):
+    """python-control 0.10.2 sets ndarray.shape on static (0-state) systems, deprecated in numpy 2.5."""
+    @functools.wraps(f)
+    def g(*a, **k):
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", "Setting the shape on a NumPy array", DeprecationWarning)
+            return f(*a, **k)
+    return g
 
 
 def _cond(M):
@@ -11,14 +24,26 @@ def _cond(M):
     return float(s[0] / s[-1]) if s[-1] > 1e-300 else float("inf")
 
 
+def _kalman_matrix(A, M_in, kind):
+    """ctrb [B, AB, ...] / obsv [C; CA; ...] with every block A^k B (C A^k) scaled to unit Frobenius norm.
+    Block scaling leaves rank, column space (ctrb) and null space (obsv) unchanged but removes the |A|^k
+    growth (|A| ~ 500 at max qbar -> raw blocks span ~8 orders of magnitude and fool an SVD rank test)."""
+    blocks, X = [], M_in
+    for _ in range(A.shape[0]):
+        nrm = np.linalg.norm(X)
+        blocks.append(X / nrm if nrm > 0 else X)
+        X = A @ X if kind == "ctrb" else X @ A
+    return np.hstack(blocks) if kind == "ctrb" else np.vstack(blocks)
+
+
 def rank_test(A, M_in, kind="ctrb", rtol=1e-8):
     """Kalman rank test. kind='ctrb': M_in = B; kind='obsv': M_in = C.
-    Numerical rank = number of singular values above rtol * sigma_max. rtol = 1e-8 treats directions whose
-    influence is 8 orders of magnitude weaker (e.g. lateral position acting only through the air-density
-    gradient) as practically uncontrollable/unobservable; `cond` reports how close to deficient it is.
-    Returns dict(n, rank, full, cond, singular_values, deficient_directions)."""
-    A = np.atleast_2d(A)
-    M = ct.ctrb(A, M_in) if kind == "ctrb" else ct.obsv(A, M_in)
+    Numerical rank = number of singular values above rtol * sigma_max of the block-normalised Kalman matrix.
+    rtol = 1e-8 treats directions whose influence is 8 orders of magnitude weaker (e.g. lateral position acting
+    only through the air-density gradient) as practically uncontrollable/unobservable; `cond` reports how close
+    to deficient it is. Returns dict(n, rank, full, cond, singular_values, deficient_directions)."""
+    A = np.atleast_2d(np.asarray(A, float))
+    M = _kalman_matrix(A, np.atleast_2d(np.asarray(M_in, float)), kind)
     U, s, Vt = np.linalg.svd(M)
     r = int(np.sum(s > rtol * s[0])) if s.size and s[0] > 0 else 0
     # uncontrollable directions: left singular vectors of the ctrb matrix beyond the rank;
@@ -52,6 +77,7 @@ def gramian_summary(W):
             "cond": float(ev[-1] / ev[0]) if ev[0] > 0 else float("inf")}
 
 
+@_quiet
 def poles_zeros(sys):
     sys = ct.ss(sys) if not isinstance(sys, ct.StateSpace) else sys
     p = np.linalg.eigvals(sys.A)
@@ -71,6 +97,7 @@ def pid_tf(Kp, Ki, Kd, tau_f=0.0, **_):
     return ct.tf([Kd + Kp * tau_f, Kp + Ki * tau_f, Ki], [tau_f, 1.0, 0.0]) if tau_f else ct.tf([Kd, Kp, Ki], [1.0, 0.0])
 
 
+@_quiet
 def loop_tf(a1, a0, b, gains, tau_act=0.0, delay=0.0, pade_order=3):
     """Open loop broken at the actuator input: L = C(s) G(s) A(s) e^{-s*delay} (delay via Pade).
     Actuation delay and estimation delay add up in this single loop."""
@@ -82,6 +109,7 @@ def loop_tf(a1, a0, b, gains, tau_act=0.0, delay=0.0, pade_order=3):
     return L
 
 
+@_quiet
 def closed_loop(a1, a0, b, gains, tau_act=0.0, delay=0.0, pade_order=3):
     """Closed-loop transfer functions (derivative on measurement, as implemented in gnc.pid.PID):
     T_ref: theta_cmd -> theta, T_dist: disturbance moment (as angular accel, rad/s^2) -> theta,
@@ -101,11 +129,12 @@ def closed_loop(a1, a0, b, gains, tau_act=0.0, delay=0.0, pade_order=3):
                 ct.ss(-Kd * filt, inputs="q", outputs="uq", name="Cq")]
     sums = [ct.summing_junction(["ue", "uq"], "uc", name="sumu"),
             ct.summing_junction(inputs=["bu", "d"], output="w", name="sumw"),
-            ct.ss([], [], [], [[b]], inputs="ua", outputs="bu", name="gain")]
+            ct.ss(ct.tf([b], [1.0]), inputs="ua", outputs="bu", name="gain")]
     sys = ct.interconnect(sys_list + sums, inputs=["r", "d"], outputs=["y", "ua"])
     return {"T_ref": sys[0, 0], "T_dist": sys[0, 1], "T_u": sys[1, 0], "ss": sys}
 
 
+@_quiet
 def margins(L):
     """Gain/phase/delay margins of open loop L (python-control). Delay margin = PM / w_crossover."""
     gm, pm, _, wpc, wgc, _ = ct.stability_margins(L)
@@ -115,6 +144,7 @@ def margins(L):
             "w_phase_crossover": float(wpc), "delay_margin_s": float(dm)}
 
 
+@_quiet
 def delay_sweep(a1, a0, b, gains, delays, tau_act=0.0, pade_order=3):
     """Closed-loop pole migration vs loop delay. Returns rows: delay, max Re(pole), damping of the
     dominant pole, stable flag, phase margin (deg)."""
@@ -131,6 +161,7 @@ def delay_sweep(a1, a0, b, gains, delays, tau_act=0.0, pade_order=3):
     return rows
 
 
+@_quiet
 def critical_delay(a1, a0, b, gains, tau_act=0.0, pade_order=5, d_max=1.0):
     """Smallest loop delay that destabilises the loop, by bisection on the Pade closed loop
     (cross-checks the PM/w_c delay margin)."""

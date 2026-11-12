@@ -72,14 +72,17 @@ class FlightComputer:
                  lookahead_time=0.0,
                  accept_radius=40.0, gravity_comp=True, a_max=60.0, alpha_max_deg=10.0, hold="rail",
                  zeta=0.7, wn=8.0, p_int=4.0, kappa=0.8, schedule=None, k_mag=0.2,
-                 nav_sigma_a=0.3, nav_sigma_b=0.02, gps_poles=(0.8, 0.85, 0.97), baro_poles=(0.99, 0.992, 0.999)):
+                 nav_sigma_a=0.3, nav_sigma_b=0.02, gps_poles=(0.8, 0.85, 0.97), baro_poles=(0.99, 0.992, 0.999),
+                 attitude="pid"):
         """guidance: "none" | "los_path";  nav: "kf" | "luenberger";  waypoints: (n,3) ENU for "los_path".
         zeta, wn, p_int, kappa: desired attitude-loop poles (see design_schedule); schedule: optional
         GainSchedule overriding the designed gains (designs are cached per rocket file).
         hold: "rail" (hold the launch-rail direction) or "vertical" (attitude-hold mode only).
         k_mag: magnetometer correction gain (rad/s); nav_sigma_a/b: KF process noise; gps/baro_poles:
-        Luenberger error-map poles per sensor update; a_max, alpha_max_deg: guidance command limits."""
-        assert guidance in ("none", "los_path") and nav in ("kf", "luenberger")
+        Luenberger error-map poles per sensor update; a_max, alpha_max_deg: guidance command limits.
+        attitude: "pid" (pole placement, default) | "lqr" (gnc.lqr, same operating points and PID structure)."""
+        assert guidance in ("none", "los_path") and nav in ("kf", "luenberger") and attitude in ("pid", "lqr")
+        self.attitude = attitude
         self.dt = dt
         self.mode, self.nav_kind = guidance, nav
         self.waypoints = waypoints
@@ -108,6 +111,11 @@ class FlightComputer:
         if key not in _SCHEDULE_CACHE:
             _SCHEDULE_CACHE[key] = design_schedule(rocket, self.zeta, self.wn, self.p_int, self.kappa)
         sched, self.schedule_table = _SCHEDULE_CACHE[key]
+        if self.attitude == "lqr":
+            from .lqr import design_lqr_schedule
+            if key + ("lqr",) not in _SCHEDULE_CACHE:
+                _SCHEDULE_CACHE[key + ("lqr",)] = design_lqr_schedule(self.schedule_table)[0]
+            sched = _SCHEDULE_CACHE[key + ("lqr",)]
         self.gains = self.schedule or sched     # a user-supplied GainSchedule overrides the designed gains
         self.t_tvc_end = tvc_end_time(rocket)
         lim = cfg.gimbal_limit_rad

@@ -92,6 +92,18 @@ def short_period(A_plane, B_plane):
     return float(-A_plane[3, 3]), float(-A_plane[3, 2]), float(B_plane[3, 0])
 
 
+def aoa_form(A, B, V, Vdot):
+    """Plane model with the lateral velocity replaced by the flow angle w/V (~ alpha - theta), states
+    [pos, w/V, angle, rate], including the time-varying term d(w/V)/dt = w'/V - (Vdot/V)(w/V).
+    The frozen-coefficient model in w carries a spurious real eigenvalue ~ Vdot/V (the boost accelerates the
+    rocket, so a fixed lateral velocity is a shrinking AoA); in this form it disappears and the residual
+    real mode is the slow gravity-turn divergence of the flight-path angle, of order g/V."""
+    T = np.diag([1.0, 1.0 / V, 1.0, 1.0])
+    Aw = T @ A @ np.linalg.inv(T)
+    Aw[1, 1] -= Vdot / V
+    return Aw, T @ B
+
+
 def analytic_plane(rocket, t, x0, env, which="pitch"):
     """Analytic linear model of one plane, [pos, vel, angle, rate], about a nominal state with zero AoA:
         w'     = -(F_x/m) theta - (qbar S CNa / m)(w/V + theta) - (T/m) delta
@@ -147,6 +159,8 @@ def operating_points(rocket, times=None, traj=None, env=None):
     traj = nominal_trajectory(rocket) if traj is None else traj
     env = make_env(rocket) if env is None else env
     t_rail = traj["events"].get("rail_exit", 0.3)
+    speed = np.linalg.norm(traj["x"][:, 3:6], axis=1)
+    accel = np.gradient(speed, traj["t"])
     if times is None:
         times = np.linspace(t_rail, 0.95 * rocket.burn_time, 7)
     pts = []
@@ -155,6 +169,7 @@ def operating_points(rocket, times=None, traj=None, env=None):
         x0[6:10] /= np.linalg.norm(x0[6:10])
         lin = linearize_at(rocket, t, x0, env)
         Aa, Ba, cond = analytic_plane(rocket, t, x0, env, "pitch")
+        cond["Vdot"] = float(np.interp(t, traj["t"], accel))
         lin.update({"x0": x0, "analytic": {"A": Aa, "B": Ba}, "flight": cond})
         pts.append(lin)
     return pts

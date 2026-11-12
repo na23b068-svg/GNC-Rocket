@@ -84,8 +84,6 @@ def test_drift_mode_is_a_frozen_coefficient_artefact(rocket, pts):
     assert dth_nl / v[2] < 0.5 * dth_lti / v[2]
 
 
-@pytest.mark.xfail(strict=True, reason="DEFECT: doc sec. 4 says gyro-only obsv rank 3 at 3.0 s and 3.9 s; "
-                                       "analysis.rank_test returns 2 (unscaled obsv matrix, rtol 1e-8)")
 def test_doc_claim_gyro_only_rank3_late_boost(rocket):
     from gnc.analysis import rank_test
     for p in operating_points(rocket, [3.0, 3.9]):
