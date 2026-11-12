@@ -6,20 +6,21 @@
 <title>GNC Dashboard</title>
 <style>
 :root {
-  --font: Inter, "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
-  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  /* 3Blue1Brown look: Computer Modern serif (CMU/Latin Modern if installed), manim colour palette */
+  --font: "CMU Serif", "Latin Modern Roman", "Computer Modern Serif", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --mono: "CMU Typewriter Text", "Latin Modern Mono", "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #111110; --panel: #1a1a19; --panel2: #242422; --border: #31312e; --grid: #2a2a28; --ground: #262c24;
-  --text: #f0efec; --text2: #c3c2b7; --muted: #8b8a80; --accent: #3987e5; --accent-ink: #ffffff; --rocket: #f0efec;
-  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
+  --bg: #0c0c0c; --panel: #151515; --panel2: #1e1e1e; --border: #2b2b2b; --grid: #173a46; --ground: #241f1b;
+  --text: #ffffff; --text2: #d6d6d6; --muted: #8a8a8a; --accent: #58c4dd; --accent-ink: #0c0c0c; --rocket: #ffffff;
+  --s1: #58c4dd; --s2: #f7d96f; --s3: #5cd0b3; --s4: #fc6255; --s5: #83c167; --s6: #f0ac5f; --s7: #9a72ac; --s8: #c55f73;
 }
 :root[data-theme="light"] {
   color-scheme: light;
-  --bg: #f2f2ef; --panel: #fcfcfb; --panel2: #eeede9; --border: #dddcd6; --grid: #ebeae5; --ground: #e4eadf;
-  --text: #0b0b0b; --text2: #52514e; --muted: #7a7972; --accent: #2a78d6; --accent-ink: #ffffff; --rocket: #3a3a38;
-  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300; --s7: #6250d6; --s8: #e34948;
+  --bg: #fbfaf6; --panel: #ffffff; --panel2: #f1efe8; --border: #dcd8cc; --grid: #d6e9ef; --ground: #ece6dd;
+  --text: #111111; --text2: #444444; --muted: #777777; --accent: #1c758a; --accent-ink: #ffffff; --rocket: #222222;
+  --s1: #1c758a; --s2: #c1a12a; --s3: #49a88f; --s4: #cf5044; --s5: #69a94e; --s6: #d48c2f; --s7: #644172; --s8: #94424e;
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
