@@ -1,8 +1,72 @@
+# ==============================================================================
+# GNC Sounding Rocket Project - .gitignore
+# Prevents large binaries, virtualenvs, and test caches from exceeding GitHub limits
+# ==============================================================================
+
+# Virtual Environments (Playwright node binary inside .venv is ~144MB - strictly ignore)
 .venv/
-__pycache__/
-*.pyc
-.pytest_cache/
+venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+
+# Heavy Binaries & External Simulators (GitHub warns >50MB, blocks >100MB)
+# OpenRocket-23.09.jar is ~69MB; fetched on demand via openrocket/setup.sh
 openrocket/bin/
 *.jar
-viz/mock_dashboard.html
+*.part
+
+# Python Bytecode & Artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Testing & Test Caches
+.pytest_cache/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# Graphify / Local Analysis Caches
 graphify-out/cache/
+*.log
+
+# Temporary Visualizer & Screenshot Churn
+viz/mock_dashboard.html
+figures/*_preview*.png
+figures/*_new*.png
+
+# Operating System & Editors
+.DS_Store
+Thumbs.db
+ehthumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.env

@@ -29,9 +29,16 @@ def _kalman_matrix(A, M_in, kind):
     Block scaling leaves rank, column space (ctrb) and null space (obsv) unchanged but removes the |A|^k
     growth (|A| ~ 500 at max qbar -> raw blocks span ~8 orders of magnitude and fool an SVD rank test)."""
     blocks, X = [], M_in
+    tol = A.shape[0] * np.finfo(float).eps * np.linalg.norm(A)
+    prev = None                                   # norm of the previous raw block
     for _ in range(A.shape[0]):
         nrm = np.linalg.norm(X)
-        blocks.append(X / nrm if nrm > 0 else X)
+        if nrm == 0 or (prev is not None and nrm < tol * prev):
+            X = np.zeros_like(X)                  # roundoff-only block (true A^k B = 0): keep it zero
+            blocks.append(X)
+        else:
+            blocks.append(X / nrm)
+            prev = nrm
         X = A @ X if kind == "ctrb" else X @ A
     return np.hstack(blocks) if kind == "ctrb" else np.vstack(blocks)
 
@@ -162,17 +169,26 @@ def delay_sweep(a1, a0, b, gains, delays, tau_act=0.0, pade_order=3):
 
 
 @_quiet
-def critical_delay(a1, a0, b, gains, tau_act=0.0, pade_order=5, d_max=1.0):
-    """Smallest loop delay that destabilises the loop, by bisection on the Pade closed loop
-    (cross-checks the PM/w_c delay margin)."""
-    stable = lambda d: np.all(ct.poles(ct.feedback(loop_tf(a1, a0, b, gains, tau_act, d, pade_order), 1)).real < 0)
-    lo, hi = 0.0, d_max
-    if stable(hi):
-        return float("inf")
-    for _ in range(40):
-        mid = 0.5 * (lo + hi)
-        lo, hi = (mid, hi) if stable(mid) else (lo, mid)
-    return float(0.5 * (lo + hi))
+def critical_delay(a1, a0, b, gains, tau_act=0.0, **_):
+    """Exact delay margin of the attitude loop (no Pade): min over ALL gain crossovers w_i of
+    ((angle L(j w_i) + 180 deg) mod 360 deg) / w_i, with L = C(s) G(s) / (tau_act s + 1).
+    Every crossover is checked because the loop can have several (the PM of the last one is not enough), and
+    bisection on delay is invalid since stability is not monotonic in delay. Returns inf without crossover."""
+    from scipy.optimize import brentq
+    Kp, Ki, Kd, tf_ = gains["Kp"], gains["Ki"], gains["Kd"], gains.get("tau_f", 0.0)
+
+    def L(w):
+        s = 1j * w
+        return (Kp + Ki / s + Kd * s / (tf_ * s + 1)) * b / (s * s + a1 * s + a0) / (tau_act * s + 1)
+
+    w = np.logspace(-4, 5, 40001)
+    lm = np.log(np.abs(L(w)))
+    dms = []
+    for i in np.nonzero(np.diff(np.sign(lm)))[0]:
+        wc = brentq(lambda x: np.log(abs(L(x))), w[i], w[i + 1], xtol=1e-12)
+        pm = (np.degrees(np.angle(L(wc))) + 180.0) % 360.0
+        dms.append(np.radians(pm) / wc)
+    return float(min(dms)) if dms else float("inf")
 
 
 def step_metrics(t, y, final=None):
