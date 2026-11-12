@@ -118,8 +118,11 @@ def validate_demo(demo, src="<demo>"):
         if t is not None or rocket is not None:
             if not isinstance(t, list):
                 _fail(src, f"{w}.t", "missing or not a list (required when rocket is given)")
-            ta = np.asarray(t, dtype=float) if t else np.zeros(0)
-            if ta.ndim != 1:
+            try:
+                ta = np.asarray(t, dtype=float) if t else np.zeros(0)
+            except (TypeError, ValueError):
+                _fail(src, f"{w}.t", "must be a flat list of numbers")
+            if ta.ndim != 1 or any(isinstance(x, bool) for x in t):
                 _fail(src, f"{w}.t", "must be a flat list of numbers")
             if not np.all(np.isfinite(ta)):
                 _fail(src, f"{w}.t", "contains NaN/inf/null")
