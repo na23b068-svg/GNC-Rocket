@@ -1,6 +1,13 @@
 import numpy as np
 
-from gnc.guidance import LOSPathGuidance, kinematic_path_check, los_angles, steer_toward
+from gnc.guidance import (
+    InterceptGuidance,
+    LOSPathGuidance,
+    kinematic_intercept_check,
+    kinematic_path_check,
+    los_angles,
+    steer_toward,
+)
 
 
 def test_los_path_converges_to_straight_line():
@@ -26,3 +33,31 @@ def test_steer_toward_is_perpendicular_and_signed():
     assert abs(a @ [0, 0, 1]) < 1e-12 and a[0] > 0 and np.isclose(eps, np.pi / 4)
     assert np.isclose(np.linalg.norm(a), 2.0 * 50 * np.pi / 4)
     assert np.allclose(los_angles(np.array([0, 1.0, 1.0])), [np.pi / 2, np.pi / 4])
+
+
+def test_intercept_pn_and_los_hit_moving_target():
+    def circular_target(t):
+        w = 20.0 / 200.0
+        return (
+            np.array([200.0 * np.cos(w * t), 200.0 * np.sin(w * t), 500.0]),
+            np.array([-20.0 * np.sin(w * t), 20.0 * np.cos(w * t), 0.0]),
+        )
+
+    pn = kinematic_intercept_check(InterceptGuidance("pn", k=3.0, a_max=50.0), [0, 0, 0], [0, 0, 30.0], circular_target)
+    los = kinematic_intercept_check(InterceptGuidance("los", k=2.0, a_max=50.0), [0, 0, 0], [0, 0, 30.0], circular_target)
+    assert pn["miss_dist"] <= 1.0
+    assert los["miss_dist"] <= 1.0
+    assert pn["control_effort"] < los["control_effort"]
+
+
+def test_intercept_perpendicular_saturation_and_zero_range():
+    v = np.array([0.0, 0.0, 40.0])
+    for mode in ("pn", "los"):
+        g = InterceptGuidance(mode, k=4.0, a_max=10.0)
+        a, info = g.command([0, 0, 0], v, [100.0, 50.0, 200.0], [10.0, -5.0, 0.0])
+        assert abs(a @ v) < 1e-9
+        assert np.linalg.norm(a) <= 10.0 + 1e-12
+        assert info["closing_vel"] > 0
+
+        a0, info0 = g.command([1, 2, 3], v, [1, 2, 3])
+        assert np.allclose(a0, 0.0) and info0["dist"] == 0.0
