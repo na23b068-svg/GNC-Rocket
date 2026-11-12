@@ -19,6 +19,8 @@ from pathlib import Path
 import numpy as np
 from plotly.offline import get_plotlyjs
 
+from .guidance_demos import guidance_demos
+
 TEMPLATE = Path(__file__).with_name("dashboard_template.html")
 MAX_TIME_POINTS = 5000      # per variant time base (25 Hz * 200 s)
 MAX_SERIES_POINTS = 5000    # per plot series
@@ -269,8 +271,17 @@ def render_html(demos, source="results", max_time=MAX_TIME_POINTS, max_series=MA
 
 
 def build(results_dir="results", out="GNC_Dashboard.html", open_browser=False,
-          max_time=MAX_TIME_POINTS, max_series=MAX_SERIES_POINTS):
+          max_time=MAX_TIME_POINTS, max_series=MAX_SERIES_POINTS, include_guidance=None):
     demos = load_results(results_dir)
+    if include_guidance is None:
+        include_guidance = Path(results_dir).resolve() == (Path(__file__).resolve().parents[1] / "results").resolve()
+    if include_guidance:
+        ids = {d["id"] for d in demos}
+        for dm in guidance_demos():
+            validate_demo(dm, f"guidance_demos:{dm['id']}")
+            if dm["id"] not in ids:
+                demos.append(dm)
+                ids.add(dm["id"])
     html = render_html(demos, results_dir, max_time, max_series)
     out = Path(out)
     out.write_text(html, encoding="utf-8")
@@ -290,9 +301,11 @@ def main(argv=None):
     ap.add_argument("--open", action="store_true", help="open the dashboard in the default browser")
     ap.add_argument("--max-points", type=int, default=MAX_TIME_POINTS,
                     help="max samples per time base / plot series (longer ones are downsampled)")
+    ap.add_argument("--no-guidance", action="store_true", help="omit live-generated guidance demos")
     a = ap.parse_args(argv)
     try:
-        out = build(a.results, a.out, a.open, a.max_points, a.max_points)
+        out = build(a.results, a.out, a.open, a.max_points, a.max_points,
+                    include_guidance=False if a.no_guidance else None)
     except ResultsError as e:
         print(f"error: {e}", file=sys.stderr)
         return 2

@@ -128,3 +128,9 @@ def test_scene_validation_rejects(mutate, needle):
     with pytest.raises(bd.ResultsError, match="docking_lvlh.json") as e:
         bd.validate_demo(d, "results/docking_lvlh.json")
     assert needle in str(e.value)
+
+
+def test_build_includes_live_guidance_demos(mock_dir, tmp_path):
+    out = bd.build(mock_dir, tmp_path / "with_guid.html", include_guidance=True)
+    ids = {d["id"] for d in _payload(out.read_text())["demos"]}
+    assert {"guidance_primitives", "guidance_los_kinematic", "guidance_intercept"}.issubset(ids)
