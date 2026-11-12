@@ -253,7 +253,7 @@ To rigorously assess GNC robustness under simultaneous stochastic perturbations,
 | **Delay Margin Analysis** | §6 | `gnc/analysis.py` | **Padé analysis ($33\text{--}73\text{ ms}$ margins)** |
 | **Kalman & Luenberger Observers** | §5 | `gnc/observers.py` | **Verified across $0.25\times\text{--}8\times$ noise sweeps** |
 | **Guidance (LOS Path Following)** | §4(ii), §5 | `gnc/guidance.py`, `scenarios/los_path.py` | **$7.76\text{ m}$ RMS on aggressive 3D zig-zag** |
-| **Target Tracking** | §4(i) | Modular interface per project scope | **Managed independently by owner** |
+| **Target Tracking** | §4(i) | `gnc/guidance.py::InterceptGuidance`, `viz/guidance_demos.py` | **Kinematic PN/LOS on a moving target; verified by `tests/test_gnc_guidance.py`** |
 | **Robustness & Noise Analysis** | §5, §7 | `scenarios/robustness.py` | **250 Monte Carlo flights verified** |
 
 The closed-loop architecture successfully stabilizes the statically stable sounding rocket under aerodynamic restoring moments, achieves robust guidance through the lookahead LOS law within strict physical TVC envelope constraints, and maintains state estimation accuracy across severe sensor noise and transport delays.

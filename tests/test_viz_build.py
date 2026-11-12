@@ -134,3 +134,15 @@ def test_build_includes_live_guidance_demos(mock_dir, tmp_path):
     out = bd.build(mock_dir, tmp_path / "with_guid.html", include_guidance=True)
     ids = {d["id"] for d in _payload(out.read_text())["demos"]}
     assert {"guidance_primitives", "guidance_los_kinematic", "guidance_intercept"}.issubset(ids)
+
+
+def test_guidance_intercept_demo_reports_finite_miss(mock_dir, tmp_path):
+    """The 4(i) dashboard demo must actually intercept, not just be present."""
+    out = bd.build(mock_dir, tmp_path / "with_guid.html", include_guidance=True)
+    demo = next(d for d in _payload(out.read_text())["demos"] if d["id"] == "guidance_intercept")
+    for v in demo["variants"]:
+        m = v["metrics"]
+        misses = [val for k, val in m.items() if k == "Miss distance [m]" or k.endswith("miss [m]")]
+        assert misses, (v["id"], list(m))
+        for miss in misses:
+            assert np.isfinite(miss) and miss < 1.0, (v["id"], miss)

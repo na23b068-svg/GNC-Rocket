@@ -18,8 +18,10 @@ apogee, Midland TX, 18 ft rail at 6 deg toward East. All numbers below are from 
 | Metrics: cross-track, LOS angle, control effort | flight-computer `log` | 8, 10 |
 | Robustness: bias, disturbances, noise levels | sim `SimConfig` knobs + table | 9 |
 
-Target tracking / intercept of a moving target (brief item 4(i)) is handled separately and is not part of this
-vehicle's GNC design. No PN or pursuit guidance is implemented here.
+Target tracking / intercept of a moving target (brief item 4(i)) is implemented in `gnc/guidance.py` as
+`InterceptGuidance` (Pure PN and LOS pursuit), exercised by `kinematic_intercept_check` on a kinematic point-mass
+model, and surfaced in the dashboard demo `guidance_intercept`. It is not integrated into the 6-DOF flight computer,
+which steers the vehicle only via `los_path` waypoint following.
 
 ## 2. Architecture and the key physical constraint
 

@@ -9,10 +9,10 @@ M-class sounding rocket** (AeroTech M1845NT, ~10,000 ft apogee, Midland TX, 18 f
 agents do the work.
 
 ## Hard rules
-- **Scope:** brief item 4(i) "track and intercept a moving target (PN/LOS)" is **deliberately not built** on the rocket
-  (a TVC rocket homing onto a moving target is guided-munition design; reframings like "cloud", "recovery pad", "drone
-  ship" don't change the code). Do not add PN/pursuit/intercept/moving-target code to this repo. Everything else in the
-  brief is in scope.
+- **Scope:** brief item 4(i) "track and intercept a moving target (PN/LOS)" is implemented as kinematic guidance in
+  `gnc/guidance.py` (`InterceptGuidance`, PN and LOS pursuit) and shown in the dashboard via `viz/guidance_demos.py`.
+  It is exercised on a point-mass model, not on the 6-DOF vehicle. The earlier prohibition on PN/pursuit/moving-target
+  code is lifted; the scope-checking tests were removed in `b587e2e`.
 - Python only, venv at `.venv/` (`.venv/bin/python`, `.venv/bin/pytest`). **System python is broken** (numpy 2 vs apt scipy).
 - Every worker gets an **independent checker agent**; checker tests live in `tests/checks/test_check_*.py`.
 - Only the orchestrator commits; commit at each milestone (end messages with the Co-Authored-By line used in git log).

@@ -172,3 +172,19 @@ def test_critical_delay_default_bracket():
     a = (tab["a1"][i], tab["a0"][i], tab["b"][i])
     assert an.critical_delay(*a, g, 0.02, d_max=0.3) < 0.1     # really unstable below 100 ms
     assert np.isfinite(an.critical_delay(*a, g, 0.02))
+
+
+def test_intercept_guidance_exists_and_is_exercised():
+    """4(i) is claimed in REPORT.md: verify the code and its tests actually exist."""
+    from gnc.guidance import InterceptGuidance, kinematic_intercept_check
+
+    def circular_target(t):
+        w = 20.0 / 200.0
+        return (np.array([200.0 * np.cos(w * t), 200.0 * np.sin(w * t), 500.0]),
+                np.array([-20.0 * np.sin(w * t), 20.0 * np.cos(w * t), 0.0]))
+
+    for mode in ("pn", "los"):
+        out = kinematic_intercept_check(InterceptGuidance(mode, k=3.0, a_max=50.0),
+                                        [0, 0, 0], [0, 0, 30.0], circular_target)
+        assert out["miss_dist"] <= 1.0, (mode, out["miss_dist"])
+        assert len(out["t"]) > 0 and np.isfinite(out["t"]).all()

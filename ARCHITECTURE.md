@@ -136,7 +136,3 @@ oriented by `quat`), a time slider / play button, and the `plots`, `metrics`, `t
 ## Testing
 Every module gets pytest tests under `tests/`. `.venv/bin/pytest -q` must pass from the repo root.
 Independent checker agents will run and extend these tests after each worker finishes.
-
-## Scope note
-Rocket moving-target intercept (PN / pursuit of a moving target) is **out of scope** for this vehicle and must not be
-implemented anywhere in this repo. Problem statement (i) of the brief is pending a decision by the user.
