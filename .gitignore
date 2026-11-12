@@ -5,3 +5,4 @@ __pycache__/
 openrocket/bin/
 *.jar
 viz/mock_dashboard.html
+graphify-out/cache/
