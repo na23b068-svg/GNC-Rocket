@@ -1,0 +1,663 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GNC Dashboard</title>
+<style>
+:root {
+  --font: Inter, "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #111110; --panel: #1a1a19; --panel2: #242422; --border: #31312e; --grid: #2a2a28; --ground: #262c24;
+  --text: #f0efec; --text2: #c3c2b7; --muted: #8b8a80; --accent: #3987e5; --accent-ink: #ffffff; --rocket: #f0efec;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f2f2ef; --panel: #fcfcfb; --panel2: #eeede9; --border: #dddcd6; --grid: #ebeae5; --ground: #e4eadf;
+  --text: #0b0b0b; --text2: #52514e; --muted: #7a7972; --accent: #2a78d6; --accent-ink: #ffffff; --rocket: #3a3a38;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300; --s7: #6250d6; --s8: #e34948;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 var(--font); }
+button { font: inherit; color: inherit; }
+#app { display: grid; grid-template-columns: 264px minmax(0, 1fr); min-height: 100vh; }
+aside { position: sticky; top: 0; height: 100vh; overflow-y: auto; background: var(--panel);
+        border-right: 1px solid var(--border); padding: 18px 12px; display: flex; flex-direction: column; gap: 14px; }
+.brand { padding: 0 8px; }
+.brand b { display: block; font-size: 17px; letter-spacing: .2px; }
+.brand small { color: var(--muted); }
+#demo-list { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+.group-label { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted);
+               margin: 12px 8px 4px; font-weight: 600; }
+.demo-btn { text-align: left; background: transparent; border: 0; border-radius: 8px; padding: 7px 10px;
+            cursor: pointer; color: var(--text2); display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.demo-btn:hover { background: var(--panel2); color: var(--text); }
+.demo-btn.on { background: var(--panel2); color: var(--text); box-shadow: inset 3px 0 0 var(--accent); font-weight: 600; }
+.demo-btn .tag { font-size: 10px; color: var(--muted); font-weight: 400; white-space: nowrap; }
+.side-foot { display: flex; flex-direction: column; gap: 8px; padding: 0 8px; color: var(--muted); font-size: 12px; }
+.btn { background: var(--panel2); border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+.btn:hover { border-color: var(--muted); }
+main { padding: 20px 24px 56px; display: flex; flex-direction: column; gap: 16px; min-width: 0; max-width: 1680px; }
+header { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+#demo-group { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; font-weight: 600; }
+h1 { margin: 2px 0 0; font-size: 24px; font-weight: 650; line-height: 1.2; }
+.desc { color: var(--text2); max-width: 980px; }
+.desc p { margin: 0 0 6px; }
+.seg { display: inline-flex; background: var(--panel2); border: 1px solid var(--border); border-radius: 999px; padding: 3px; gap: 2px; }
+.seg button { border: 0; background: transparent; color: var(--text2); padding: 5px 12px; border-radius: 999px; cursor: pointer; font-weight: 600; font-size: 13px; }
+.seg button:hover:not(:disabled) { color: var(--text); }
+.seg button.on { background: var(--accent); color: var(--accent-ink); }
+.seg button:disabled { opacity: .4; cursor: not-allowed; }
+.seg.big button { padding: 8px 26px; font-size: 15px; }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.tab { background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 6px 14px; cursor: pointer; color: var(--text2); }
+.tab:hover { color: var(--text); border-color: var(--muted); }
+.tab.on { background: var(--panel); color: var(--text); border-color: var(--accent); box-shadow: inset 0 -2px 0 var(--accent); }
+.card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; }
+#main-view { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 8px; }
+.view-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; color: var(--text2); font-size: 13px; }
+.view-bar label { display: inline-flex; align-items: center; gap: 8px; }
+select { background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; font: inherit; }
+#view2d { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 8px; align-items: start; }
+#view2d .view-plot { height: 480px; min-width: 0; }
+#scene-plot { height: 620px; }
+.time-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding-top: 4px; border-top: 1px solid var(--border); }
+#play-btn { width: 40px; height: 40px; border-radius: 50%; border: 0; background: var(--accent); color: var(--accent-ink);
+            cursor: pointer; font-size: 16px; display: grid; place-items: center; flex: none; }
+#time-slider { flex: 1; min-width: 160px; accent-color: var(--accent); }
+#time-label { font-family: var(--mono); font-size: 13px; color: var(--text); min-width: 150px; text-align: right; white-space: nowrap; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { background: var(--panel2); border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; font-size: 12px;
+        cursor: pointer; color: var(--text2); white-space: nowrap; }
+.chip:hover { border-color: var(--accent); color: var(--text); }
+.chip b { font-family: var(--mono); font-weight: 500; color: var(--muted); margin-right: 4px; }
+.chip.past b { color: var(--accent); }
+.metric-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+.metric { padding: 12px 14px; }
+.metric .k { color: var(--text2); font-size: 12px; }
+.metric .v { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; margin-top: 2px; word-break: break-word; }
+.metric .u { font-size: 13px; color: var(--muted); font-weight: 500; margin-left: 4px; }
+.plot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 460px), 1fr)); gap: 12px; }
+.plot-card { padding: 10px 10px 4px; min-width: 0; }
+.plot-card h3, .section-title { margin: 0 4px 2px; font-size: 14px; font-weight: 600; color: var(--text); }
+.plot { height: 300px; }
+.table-card { padding: 12px 14px; overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; margin-top: 8px; font-variant-numeric: tabular-nums; }
+th, td { padding: 6px 10px; border-bottom: 1px solid var(--border); text-align: left; }
+th { color: var(--muted); font-weight: 600; font-size: 12px; }
+td.num { text-align: right; font-family: var(--mono); font-size: 12.5px; }
+.text-card { padding: 12px 16px; color: var(--text2); white-space: pre-wrap; }
+.empty { color: var(--muted); padding: 24px; text-align: center; }
+kbd { font-family: var(--mono); font-size: 11px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; }
+@media (max-width: 900px) {
+  #app { grid-template-columns: 1fr; }
+  aside { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--border); }
+  main { padding: 16px; }
+  #view2d .view-plot { height: 360px; }
+  #scene-plot { height: 460px; }
+}
+</style>
+<script>/*__PLOTLY_JS__*/</script>
+</head>
+<body>
+<div id="app">
+  <aside>
+    <div class="brand"><b>GNC Dashboard</b><small>Launch, ascent and docking demos</small></div>
+    <nav id="demo-list" aria-label="Demos"></nav>
+    <div class="side-foot">
+      <button class="btn" id="theme-btn" type="button">Light mode</button>
+      <div><kbd>Space</kbd> play/pause &nbsp; <kbd>&larr;</kbd><kbd>&rarr;</kbd> step (<kbd>Shift</kbd> &times;10)</div>
+      <div id="build-info"></div>
+    </div>
+  </aside>
+  <main>
+    <header>
+      <div><div id="demo-group"></div><h1 id="demo-title"></h1></div>
+      <div class="seg big" id="view-toggle" role="group" aria-label="View">
+        <button type="button" data-view="2d">2D</button><button type="button" data-view="3d">3D</button>
+      </div>
+    </header>
+    <div class="desc" id="demo-desc"></div>
+    <div class="tabs" id="variant-tabs" role="tablist"></div>
+    <section class="card" id="main-view">
+      <div class="view-bar">
+        <span id="view-hint"></span>
+        <div class="seg" id="scale-toggle" role="group" aria-label="3D scale">
+          <button type="button" data-scale="true">True scale</button><button type="button" data-scale="stretched">Stretched</button>
+        </div>
+      </div>
+      <div id="view2d"></div>
+      <div id="view3d" hidden><div id="scene-plot"></div></div>
+      <div class="time-row">
+        <button id="play-btn" type="button" aria-label="Play">&#9654;</button>
+        <input id="time-slider" type="range" min="0" max="0" step="1" value="0" aria-label="Time">
+        <span id="time-label"></span>
+        <div class="seg" id="speed-seg" role="group" aria-label="Playback speed"></div>
+      </div>
+      <div class="chips" id="event-chips"></div>
+    </section>
+    <section class="metric-grid" id="metrics"></section>
+    <section class="plot-grid" id="plots"></section>
+    <section id="tables" style="display:flex;flex-direction:column;gap:12px"></section>
+    <section id="notes"></section>
+    <section id="analysis-events"></section>
+  </main>
+</div>
+<script id="gnc-data" type="application/json">__GNC_DATA__</script>
+<script>
+(function () {
+'use strict';
+const DATA = JSON.parse(document.getElementById('gnc-data').textContent);
+const DEMOS = DATA.demos;
+const $ = id => document.getElementById(id);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const SPEEDS = [0.5, 1, 2, 5, 10, 50, 200];
+const TRAIL_S = 8;  // seconds of fading trail in 3D
+const S = { d: 0, v: 0, view: '2d', i: 0, simT: 0, playing: false, speed: 1, scale: 'true',
+            lastWall: null, lastCursor: 0, stale2d: true, stale3d: true, theme: 'dark' };
+let C = null;          // context of the current variant
+let PLOTS = [];        // [{div, time}]
+let DYN2 = null, DYN3 = null, G3 = null;
+const CFG = { displaylogo: false, responsive: true, modeBarButtonsToRemove: ['lasso2d', 'select2d'] };
+
+try { const th = localStorage.getItem('gnc-theme'); if (th === 'light' || th === 'dark') S.theme = th; } catch (e) {}
+document.documentElement.dataset.theme = S.theme;
+
+// ------------------------------------------------------------------ helpers
+const cssv = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function theme() {
+  const s = []; for (let k = 1; k <= 8; k++) s.push(cssv('--s' + k));
+  return { bg: cssv('--panel'), text: cssv('--text'), text2: cssv('--text2'), muted: cssv('--muted'), grid: cssv('--grid'),
+           border: cssv('--border'), ground: cssv('--ground'), rocket: cssv('--rocket'), s };
+}
+const ok = p => Array.isArray(p) && p[0] != null && p[1] != null && p[2] != null;
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+function fmt(v) {
+  if (v == null) return '—';
+  if (typeof v === 'boolean') return v ? 'yes' : 'no';
+  if (typeof v !== 'number') return String(v);
+  if (!isFinite(v)) return '—';
+  const a = Math.abs(v);
+  if (a !== 0 && (a >= 1e9 || a < 1e-3)) return v.toExponential(3);
+  if (Number.isInteger(v)) return v.toLocaleString('en-US');
+  return parseFloat(v.toPrecision(4)).toLocaleString('en-US', { maximumFractionDigits: 6 });
+}
+function axis(th, title, extra) {
+  return Object.assign({ title: { text: title || '', font: { size: 12, color: th.text2 } }, gridcolor: th.grid, zerolinecolor: th.border,
+    linecolor: th.border, tickfont: { size: 11, color: th.muted }, automargin: true }, extra || {});
+}
+function baseLayout(th, uirev) {
+  return { paper_bgcolor: th.bg, plot_bgcolor: th.bg, uirevision: uirev,
+    font: { family: cssv('--font'), size: 12, color: th.text2 },
+    margin: { l: 56, r: 16, t: 34, b: 44 }, hovermode: 'closest',
+    hoverlabel: { font: { family: cssv('--font') } },
+    legend: { orientation: 'h', x: 0, y: 1.0, xanchor: 'left', yanchor: 'bottom', bgcolor: 'rgba(0,0,0,0)', font: { size: 11, color: th.text2 } },
+    modebar: { bgcolor: 'rgba(0,0,0,0)', color: th.muted, activecolor: th.text } };
+}
+function idxAt(T) {   // nearest sample index to time T
+  const t = C.t; let lo = 0, hi = t.length - 1;
+  if (T <= t[0]) return 0; if (T >= t[hi]) return hi;
+  while (hi - lo > 1) { const m = (lo + hi) >> 1; if (t[m] <= T) lo = m; else hi = m; }
+  return (T - t[lo] < t[hi] - T) ? lo : hi;
+}
+function floorIdx(T) { const i = idxAt(T); return (C.t[i] > T && i > 0) ? i - 1 : i; }
+function quatR(q) {   // scalar-first, body -> ENU
+  const n = Math.hypot(q[0], q[1], q[2], q[3]) || 1, w = q[0] / n, x = q[1] / n, y = q[2] / n, z = q[3] / n;
+  return [[1 - 2 * (y * y + z * z), 2 * (x * y - w * z), 2 * (x * z + w * y)],
+          [2 * (x * y + w * z), 1 - 2 * (x * x + z * z), 2 * (y * z - w * x)],
+          [2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x * x + y * y)]];
+}
+const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const unit = a => { const n = Math.hypot(a[0], a[1], a[2]); return n > 1e-12 ? [a[0] / n, a[1] / n, a[2] / n] : null; };
+function bodyAxes(i) {   // [nose, body-y] in ENU; falls back to velocity direction without quat
+  const q = C.quat && C.quat[i];
+  if (q && q.every(v => v != null)) { const R = quatR(q); return [[R[0][0], R[1][0], R[2][0]], [R[0][1], R[1][1], R[2][1]]]; }
+  const a = C.pos[Math.max(0, i - 1)], b = C.pos[Math.min(C.N - 1, i + 1)];
+  const nose = (ok(a) && ok(b) && unit([b[0] - a[0], b[1] - a[1], b[2] - a[2]])) || [0, 0, 1];
+  return [nose, unit(cross([0, 0, 1], nose)) || [0, 1, 0]];
+}
+
+// ------------------------------------------------------------------ context
+function makeCtx(demo, v) {
+  const r = v.rocket;
+  const c = { demo, v, t: v.t || [], rocket: (r && r.pos && r.pos.length) ? r : null, events: v.events || [] };
+  if (!c.rocket) return c;
+  c.N = c.t.length; c.pos = r.pos; c.quat = r.quat || null; c.est = r.pos_est || null;
+  c.objects = v.objects || [];
+  const sc = v.scene || {};
+  c.sc = { frame: sc.frame || 'ENU', labels: sc.axis_labels || ['East [m]', 'North [m]', 'Up [m]'], ground: sc.ground != null ? sc.ground : sc.frame !== 'LVLH',
+           glyph: sc.glyph || 'rocket', glyphLen: sc.glyph_length_m || null,
+           views: sc.views2d || [{ title: 'Side view', x: 'downrange', y: 2 }, { title: 'Ground track', x: 0, y: 1 }] };
+  let best = 0, dir = [1, 0];
+  for (const p of c.pos) { if (!ok(p)) continue; const h = Math.hypot(p[0], p[1]); if (h > best) { best = h; dir = [p[0] / h, p[1] / h]; } }
+  if (best < 1) dir = [1, 0];
+  c.dir = dir; c.az = (Math.atan2(dir[0], dir[1]) * 180 / Math.PI + 360) % 360;
+  const dt = c.N > 1 ? (c.t[c.N - 1] - c.t[0]) / (c.N - 1) : 0.04;
+  c.trailN = clamp(Math.round(TRAIL_S / Math.max(dt, 1e-3)), 2, 2000);
+  return c;
+}
+function coord(p, a) { return a === 'downrange' ? p[0] * C.dir[0] + p[1] * C.dir[1] : p[a]; }
+function axLabel(a) { return a === 'downrange' ? `Downrange, azimuth ${C.az.toFixed(0)}° [m]` : C.sc.labels[a]; }
+const glyphName = () => C.sc.glyph === 'spacecraft' ? 'Spacecraft' : 'Rocket';
+function thinLabels(pts, span) {   // drop an event label if it would sit on top of the previous kept one
+  let last = null;
+  return pts.map(q => { if (!q) return false; const ok2 = !last || Math.hypot(...q.map((v, k) => (v - last[k]) / span[k])) > 0.08; if (ok2) last = q; return ok2; });
+}
+const isSingle = o => o.pos.length === 1;
+function circlePts(cx, cy, r) { const a = []; for (let k = 0; k <= 72; k++) a.push([cx + r * Math.cos(k * Math.PI / 36), cy + r * Math.sin(k * Math.PI / 36)]); return a; }
+function sphereXYZ(o) {   // wireframe: 5 latitude rings + 8 meridians, null-separated
+  const [cx, cy, cz] = o.center, r = o.radius, X = [], Y = [], Z = [], push = (a, b, c) => { X.push(a); Y.push(b); Z.push(c); };
+  const brk = () => push(null, null, null);
+  for (let l = -2; l <= 2; l++) { const ph = l * Math.PI / 6, rr = r * Math.cos(ph);
+    for (let k = 0; k <= 48; k++) push(cx + rr * Math.cos(k * Math.PI / 24), cy + rr * Math.sin(k * Math.PI / 24), cz + r * Math.sin(ph)); brk(); }
+  for (let m = 0; m < 8; m++) { const lam = m * Math.PI / 4;
+    for (let k = 0; k <= 48; k++) { const ph = -Math.PI / 2 + k * Math.PI / 48; push(cx + r * Math.cos(ph) * Math.cos(lam), cy + r * Math.cos(ph) * Math.sin(lam), cz + r * Math.sin(ph)); } brk(); }
+  return { x: X, y: Y, z: Z };
+}
+
+// ------------------------------------------------------------------ 2D view (one plot per scene.views2d entry)
+function build2D() {
+  const th = theme(), c = C, box = $('view2d');
+  (DYN2 || []).forEach(d => Plotly.purge(d.div)); DYN2 = []; box.innerHTML = '';
+  const hov = name => name + '<br>t = %{customdata:.2f} s<br>(%{x:.0f}, %{y:.0f}) m<extra></extra>';
+  const divs = c.sc.views.map((_, vi) => { const d = el('div', 'view-plot'); d.id = 'v2d-' + vi; box.append(d); return d; });   // all divs first so the grid has its final columns
+  c.sc.views.forEach((vw, vi) => {
+    const div = divs[vi];
+    const X = pts => pts.map(p => ok(p) ? coord(p, vw.x) : null), Y = pts => pts.map(p => ok(p) ? p[vw.y] : null);
+    const tr = [], dyn = [], ext = [[Infinity, -Infinity], [Infinity, -Infinity]];
+    const grow = (xs, ys) => { xs.forEach(x => { if (x != null) { ext[0][0] = Math.min(ext[0][0], x); ext[0][1] = Math.max(ext[0][1], x); } });
+                               ys.forEach(y => { if (y != null) { ext[1][0] = Math.min(ext[1][0], y); ext[1][1] = Math.max(ext[1][1], y); } }); };
+    const add = (name, pts, style) => { const x = X(pts), y = Y(pts); grow(x, y);
+      tr.push(Object.assign({ type: 'scatter', name, legendgroup: name, x, y }, style)); return tr.length - 1; };
+    const addDyn = (name, fn, style) => { const k = add(name, fn(S.i), style); dyn.push({ k, fn }); };
+    let anchor = vw.x === 0 && vw.y === 1;
+    if (c.sc.ground) add('Origin', [[0, 0, 0]], { mode: 'markers', marker: { symbol: 'triangle-up', size: 12, color: th.text2 }, hovertemplate: 'Origin<extra></extra>', showlegend: false });
+    c.objects.forEach(o => {
+      const nm = o.name || o.kind;
+      if (o.kind === 'sphere') {
+        const pts = circlePts(coord(o.center, vw.x), o.center[vw.y], o.radius), xs = pts.map(q => q[0]), ys = pts.map(q => q[1]); grow(xs, ys); anchor = true;
+        tr.push({ type: 'scatter', name: nm, legendgroup: nm, mode: 'lines', x: xs, y: ys, line: { color: th.s[7], width: 1.8 }, hovertemplate: nm + '<extra></extra>' });
+      } else if (o.kind === 'waypoints') {
+        add(nm, o.pos, { mode: 'markers', marker: { symbol: 'diamond', size: 11, color: th.s[3], line: { color: th.bg, width: 2 } },
+          text: o.pos.map((_, j) => 'WP' + (j + 1)), hovertemplate: nm + ' %{text}<br>(%{x:.0f}, %{y:.0f}) m<extra></extra>' });
+      } else if (o.kind === 'moving') {
+        add(nm, o.pos, { mode: 'lines', line: { color: th.s[4], width: 1, dash: 'dot' }, opacity: 0.6, hoverinfo: 'skip' });
+        addDyn(nm + ' trail', i => o.pos.slice(0, i + 1), { mode: 'lines', legendgroup: nm, showlegend: false, line: { color: th.s[4], width: 2.4 }, hoverinfo: 'skip' });
+        addDyn(nm + ' now', i => [o.pos[i]], { mode: 'markers', legendgroup: nm, showlegend: false, marker: { size: 11, color: th.s[4], line: { color: th.bg, width: 2 } }, hovertemplate: nm + '<extra></extra>' });
+      } else if (isSingle(o)) {
+        add(nm, o.pos, { mode: 'markers', marker: { symbol: 'square', size: 12, color: th.s[5], line: { color: th.bg, width: 2 } }, hovertemplate: nm + '<extra></extra>' });
+      } else add(nm, o.pos, { mode: 'lines', line: { color: th.s[6], width: 1.5, dash: 'dash' }, hovertemplate: nm + '<br>(%{x:.0f}, %{y:.0f}) m<extra></extra>' });
+    });
+    add('Truth', c.pos, { mode: 'lines', line: { color: th.s[0], width: 2.2 }, customdata: c.t, hovertemplate: hov('Truth') });
+    if (c.est) add('Nav estimate', c.est, { mode: 'lines', line: { color: th.s[2], width: 1.5, dash: 'dash' }, customdata: c.t, hovertemplate: hov('Nav estimate') });
+    if (c.events.length) { const ep = c.events.map(e => c.pos[idxAt(e.t)]);
+      const keep = thinLabels(ep.map(p => ok(p) ? [coord(p, vw.x), p[vw.y]] : null), [Math.max(ext[0][1] - ext[0][0], 1), Math.max(ext[1][1] - ext[1][0], 1)]);
+      add('Events', ep, { mode: 'markers+text', marker: { symbol: 'circle-open', size: 9, color: th.text2, line: { width: 2 } },
+      customdata: c.events.map(e => e.t), hovertext: c.events.map(e => e.label), text: c.events.map((e, k) => keep[k] ? e.label : ''), textposition: 'top center', textfont: { size: 10, color: th.muted },
+      hovertemplate: '%{hovertext}<br>t = %{customdata:.2f} s<extra></extra>', showlegend: false }); }
+    addDyn(glyphName(), i => [c.pos[i]], { mode: 'markers', marker: { size: 13, color: th.rocket, line: { color: th.s[0], width: 3 } }, hovertemplate: glyphName() + ' (now)<extra></extra>', showlegend: false });
+    const lay = Object.assign(baseLayout(th, 'v2d' + c.demo.id + vi), { margin: { l: 60, r: 16, t: 40, b: 46 },
+      xaxis: axis(th, axLabel(vw.x)), yaxis: axis(th, axLabel(vw.y)),
+      title: { text: vw.title || '', font: { size: 13, color: th.text }, x: 0.02, y: 0.97 }, showlegend: vi === 0 });
+    lay.legend.y = 1.0; lay.legend.yanchor = 'bottom'; lay.legend.x = 1; lay.legend.xanchor = 'right';
+    if (anchor) {   // equal metres per pixel on both axes (so spheres stay circles): fix the ranges and size the div to match
+      if (c.objects.some(o => o.kind === 'sphere')) div.style.gridColumn = '1 / -1';
+      let xs = Math.max(ext[0][1] - ext[0][0], 1) * 1.1, ys = Math.max(ext[1][1] - ext[1][0], 1) * 1.1;
+      const xm = (ext[0][0] + ext[0][1]) / 2, ym = (ext[1][0] + ext[1][1]) / 2, W = Math.max(div.clientWidth - 76, 200), Hp = clamp(W * ys / xs, 200, 440);
+      if (W * ys / xs < Hp) ys = Hp * xs / W; else xs = ys * W / Hp;
+      div.style.height = (Hp + 96) + 'px';
+      Object.assign(lay.xaxis, { range: [xm - xs / 2, xm + xs / 2], autorange: false }); Object.assign(lay.yaxis, { range: [ym - ys / 2, ym + ys / 2], autorange: false });
+    }
+    Plotly.react(div, tr, lay, CFG); hookClick(div.id);
+    DYN2.push({ div, dyn, X, Y });
+  });
+  S.stale2d = false;
+}
+function update2D() {
+  DYN2.forEach(d => Plotly.restyle(d.div, { x: d.dyn.map(q => d.X(q.fn(S.i))), y: d.dyn.map(q => d.Y(q.fn(S.i))) }, d.dyn.map(q => q.k)));
+}
+
+// ------------------------------------------------------------------ 3D view
+// Glyphs in body coordinates (x = nose / docking axis, unit length, centred). Parts: 0 body, 1 nose, 2 fins/panels, 3 marked fin/panel (shows roll)
+function makeGlyph(kind) {
+  const vx = [], vy = [], vz = [], I = [], J = [], K = [], part = [];
+  const tri = (a, b, c, p) => { I.push(a); J.push(b); K.push(c); part.push(p); };
+  const vert = (x, y, z) => { vx.push(x); vy.push(y); vz.push(z); return vx.length - 1; };
+  const quad2 = (a, b, c, d, p) => { tri(a, b, c, p); tri(a, c, d, p); tri(a, c, b, p); tri(a, d, c, p); };   // two-sided
+  if (kind === 'rocket') {
+    const n = 12, R = 0.05, L1 = 0.72, X0 = -0.5;
+    for (let r = 0; r < 2; r++) for (let k = 0; k < n; k++) { const a = 2 * Math.PI * k / n; vert(X0 + (r ? L1 : 0), R * Math.cos(a), R * Math.sin(a)); }
+    const tip = vert(X0 + 1, 0, 0), tail = vert(X0, 0, 0);
+    for (let k = 0; k < n; k++) { const k2 = (k + 1) % n; tri(k, k2, n + k, 0); tri(k2, n + k2, n + k, 0); tri(n + k, n + k2, tip, 1); tri(tail, k2, k, 0); }
+    for (let f = 0; f < 4; f++) { const a = f * Math.PI / 2, c = Math.cos(a), s = Math.sin(a), b = vx.length;
+      vert(X0, R * c, R * s); vert(X0 + 0.26, R * c, R * s); vert(X0 - 0.03, 3.4 * R * c, 3.4 * R * s); tri(b, b + 1, b + 2, f === 0 ? 3 : 2); tri(b, b + 2, b + 1, f === 0 ? 3 : 2); }
+  } else {   // spacecraft: box bus, docking frustum on +x, two solar wings along +-y
+    const w = 0.17, x0 = -0.5, x1 = 0.15, x2 = 0.5, w2 = 0.07, v = [];
+    for (const sx of [x0, x1]) for (const [sy, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) v.push(vert(sx, sy * w, sz * w));
+    const face = (a, b, c, d, p) => { tri(a, b, c, p); tri(a, c, d, p); };
+    face(v[0], v[3], v[2], v[1], 0); face(v[4], v[5], v[6], v[7], 0);
+    for (let k = 0; k < 4; k++) { const k2 = (k + 1) % 4; face(v[k], v[k2], v[4 + k2], v[4 + k], 0); }
+    const f = []; for (const [sy, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) f.push(vert(x2, sy * w2, sz * w2));
+    for (let k = 0; k < 4; k++) { const k2 = (k + 1) % 4; face(v[4 + k], v[4 + k2], f[k2], f[k], 1); }
+    face(f[0], f[1], f[2], f[3], 1);
+    for (const sgn of [-1, 1]) { const a = vert(-0.42, sgn * w, 0), b = vert(-0.05, sgn * w, 0), c = vert(-0.05, sgn * 1.0, 0), d = vert(-0.42, sgn * 1.0, 0); quad2(a, b, c, d, sgn > 0 ? 3 : 2); }
+  }
+  return { vx, vy, vz, I, J, K, part };
+}
+const GLYPHS = { rocket: makeGlyph('rocket'), spacecraft: makeGlyph('spacecraft') };
+
+function bounds() {
+  const mn = [0, 0, 0], mx = [0, 0, 0];
+  const add = p => { if (!ok(p)) return; for (let k = 0; k < 3; k++) { if (p[k] < mn[k]) mn[k] = p[k]; if (p[k] > mx[k]) mx[k] = p[k]; } };
+  C.pos.forEach(add); if (C.est) C.est.forEach(add);
+  C.objects.forEach(o => { if (o.kind === 'sphere') for (const s of [-1, 1]) add(o.center.map(x => x + s * o.radius)); else o.pos.forEach(add); });
+  return [mn, mx];
+}
+function autoScale() {   // flat / very wide scenes read better stretched, unless a sphere must stay round
+  const [mn, mx] = bounds(), r = [0, 1, 2].map(k => mx[k] - mn[k]);
+  return (C.objects.some(o => o.kind === 'sphere') || r[2] >= 0.25 * Math.max(...r)) ? 'true' : 'stretched';
+}
+function geom3D() {
+  const [mn, mx] = bounds(), lo = mn.slice(), hi = mx.slice(), M = Math.max(...[0, 1, 2].map(k => mx[k] - mn[k]), 1);
+  if (S.scale === 'true') {   // equal metres per unit; widen thin axes symmetrically so the scene isn't a sliver
+    for (let k = 0; k < 3; k++) if (hi[k] - lo[k] < 0.3 * M) { const m = (lo[k] + hi[k]) / 2; lo[k] = m - 0.15 * M; hi[k] = m + 0.15 * M; if (k === 2 && C.sc.ground && mn[2] >= 0) { lo[2] = 0; hi[2] = 0.3 * M; } }
+  }
+  for (let k = 0; k < 3; k++) { const pad = 0.05 * Math.max(hi[k] - lo[k], 1); lo[k] -= (k === 2 && C.sc.ground && lo[k] >= 0) ? 0.002 * M : pad; hi[k] += pad; }
+  const r = [0, 1, 2].map(k => hi[k] - lo[k]), a = S.scale === 'true' ? r.map(x => x / Math.max(...r)) : [1, 1, 1], s = [0, 1, 2].map(k => a[k] / r[k]);
+  const mean = (s[0] + s[1] + s[2]) / 3, big = Math.max(...a);
+  return { lo, hi, a, s, L: clamp((C.sc.glyphLen || 0) * mean, 0.085 * big, 0.15 * big) };
+}
+function glyphXYZ(i) {
+  const p = C.pos[i]; if (!ok(p)) return [[], [], []];
+  const [ex, ey] = bodyAxes(i), s = G3.s, g = GLYPHS[C.sc.glyph];
+  // build the glyph in display space so it stays undistorted (and aligned with the drawn path) in stretched mode
+  const n = unit([ex[0] * s[0], ex[1] * s[1], ex[2] * s[2]]);
+  let l = [ey[0] * s[0], ey[1] * s[1], ey[2] * s[2]]; const d = dot(l, n);
+  l = unit([l[0] - d * n[0], l[1] - d * n[1], l[2] - d * n[2]]) || unit(cross(n, [0, 0, 1])) || [0, 1, 0];
+  const m = cross(n, l), X = [], Y = [], Zs = [], L = G3.L;
+  for (let k = 0; k < g.vx.length; k++) {
+    const bx = g.vx[k] * L, by = g.vy[k] * L, bz = g.vz[k] * L;
+    X.push(p[0] + (n[0] * bx + l[0] * by + m[0] * bz) / s[0]);
+    Y.push(p[1] + (n[1] * bx + l[1] * by + m[1] * bz) / s[1]);
+    Zs.push(p[2] + (n[2] * bx + l[2] * by + m[2] * bz) / s[2]);
+  }
+  return [X, Y, Zs];
+}
+function trailXYZ(i, n) {   // fixed length (padded with the first point) so the colour gradient never changes
+  const X = [], Y = [], Z = [];
+  for (let k = i - n; k <= i; k++) { const p = C.pos[Math.max(0, k)]; X.push(ok(p) ? p[0] : null); Y.push(ok(p) ? p[1] : null); Z.push(ok(p) ? p[2] : null); }
+  return [X, Y, Z];
+}
+const xyzOf = pts => [pts.map(p => ok(p) ? p[0] : null), pts.map(p => ok(p) ? p[1] : null), pts.map(p => ok(p) ? p[2] : null)];
+function camEye() {   // look at an elongated scene from the side, not along its long axis
+  const [a0, a1, a2] = G3.a, long = a0 >= a1 && a0 >= a2 ? 0 : a1 >= a2 ? 1 : 2;
+  const elong = Math.max(...G3.a) / Math.min(...G3.a) > 2;
+  const e = !elong ? [1.5, -1.5, 0.7] : long === 0 ? [0.5, -1.3, 0.55] : long === 1 ? [1.3, -0.5, 0.55] : [1.4, -1.4, 0.65];
+  const f = elong ? 0.65 : 1;   // elongated boxes otherwise float small in the viewport
+  return { x: e[0] * f, y: e[1] * f, z: e[2] * f };
+}
+function build3D() {
+  const th = theme(), c = C, tr = [], dyn = [];
+  G3 = geom3D();
+  const { lo, hi } = G3, lb = c.sc.labels;
+  const xyz = pts => { const [x, y, z] = xyzOf(pts); return { x, y, z }; };
+  const hov = name => name + '<br>t = %{customdata:.2f} s<br>(%{x:.0f}, %{y:.0f}, %{z:.0f}) m<extra></extra>';
+  if (c.sc.ground) tr.push({ type: 'mesh3d', name: 'Ground', x: [lo[0], hi[0], hi[0], lo[0]], y: [lo[1], lo[1], hi[1], hi[1]], z: [0, 0, 0, 0],
+            i: [0, 0], j: [1, 2], k: [2, 3], color: th.ground, opacity: 1, hoverinfo: 'skip', showscale: false, lighting: { ambient: 1, diffuse: 0, specular: 0 }, flatshading: true });
+  if (c.sc.ground) tr.push(Object.assign({ type: 'scatter3d', name: 'Origin', mode: 'markers', marker: { size: 6, symbol: 'square', color: th.text2 }, hovertemplate: 'Origin<extra></extra>', showlegend: false }, xyz([[0, 0, 0]])));
+  c.objects.forEach(o => {
+    const nm = o.name || o.kind;
+    if (o.kind === 'sphere') tr.push(Object.assign({ type: 'scatter3d', name: nm, mode: 'lines', line: { color: th.s[7], width: 2 }, opacity: 0.45, hoverinfo: 'name' }, sphereXYZ(o)));
+    else if (o.kind === 'waypoints') tr.push(Object.assign({ type: 'scatter3d', name: nm, mode: 'markers', marker: { size: 6, symbol: 'diamond', color: th.s[3] }, text: o.pos.map((_, j) => 'WP' + (j + 1)), hovertemplate: nm + ' %{text}<br>(%{x:.0f}, %{y:.0f}, %{z:.0f}) m<extra></extra>' }, xyz(o.pos)));
+    else if (o.kind === 'moving') {
+      tr.push(Object.assign({ type: 'scatter3d', name: nm, mode: 'lines', line: { color: th.s[4], width: 2, dash: 'dot' }, opacity: 0.6, hoverinfo: 'name' }, xyz(o.pos)));
+      for (const [suf, mode, fn, st] of [[' trail', 'lines', i => o.pos.slice(0, i + 1), { line: { color: th.s[4], width: 5 } }], [' now', 'markers', i => [o.pos[i]], { marker: { size: 6, color: th.s[4] } }]]) {
+        dyn.push({ k: tr.length, fn: i => xyzOf(fn(i)) });
+        tr.push(Object.assign({ type: 'scatter3d', name: nm + suf, mode, hoverinfo: 'name', showlegend: false }, st, xyz(fn(S.i))));
+      }
+    } else if (isSingle(o)) tr.push(Object.assign({ type: 'scatter3d', name: nm, mode: 'markers', marker: { size: 6, symbol: 'square', color: th.s[5] }, hoverinfo: 'name' }, xyz(o.pos)));
+    else tr.push(Object.assign({ type: 'scatter3d', name: nm, mode: 'lines', line: { color: th.s[6], width: 3, dash: 'dash' }, hoverinfo: 'name' }, xyz(o.pos)));
+  });
+  tr.push(Object.assign({ type: 'scatter3d', name: 'Truth', mode: 'lines', line: { color: th.s[0], width: 3 }, opacity: 0.55, customdata: c.t, hovertemplate: hov('Truth') }, xyz(c.pos)));
+  if (c.est) tr.push(Object.assign({ type: 'scatter3d', name: 'Nav estimate', mode: 'lines', line: { color: th.s[2], width: 2, dash: 'dash' }, customdata: c.t, hovertemplate: hov('Nav estimate') }, xyz(c.est)));
+  if (c.events.length) { const ep = c.events.map(e => c.pos[idxAt(e.t)]), keep = thinLabels(ep, [hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]]);
+    tr.push(Object.assign({ type: 'scatter3d', name: 'Events', mode: 'markers+text', marker: { size: 3, color: th.text2 },
+    text: c.events.map((e, k) => keep[k] ? e.label : ''), hovertext: c.events.map(e => e.label), textposition: 'top center', textfont: { size: 10, color: th.muted }, customdata: c.events.map(e => e.t),
+    hovertemplate: '%{hovertext}<br>t = %{customdata:.2f} s<extra></extra>', showlegend: false }, xyz(ep))); }
+  const [tx, ty, tz] = trailXYZ(S.i, c.trailN);
+  dyn.push({ k: tr.length, fn: i => trailXYZ(i, c.trailN) });
+  tr.push({ type: 'scatter3d', name: 'Trail', mode: 'lines', x: tx, y: ty, z: tz, hoverinfo: 'skip', showlegend: false,
+            line: { width: 8, color: tx.map((_, k) => k / (tx.length - 1)), colorscale: [[0, th.bg], [1, th.s[0]]], cmin: 0, cmax: 1 } });
+  if (c.sc.ground) { dyn.push({ k: tr.length, fn: i => { const p = c.pos[i]; return ok(p) ? [[p[0], p[0]], [p[1], p[1]], [0, p[2]]] : [[], [], []]; } });
+    tr.push({ type: 'scatter3d', name: 'Drop line', mode: 'lines', x: [], y: [], z: [], hoverinfo: 'skip', showlegend: false, line: { width: 2, color: th.muted, dash: 'dot' } }); }
+  const [gx, gy, gz] = glyphXYZ(S.i), pc = [th.rocket, th.s[7], th.s[1], th.s[7]], g = GLYPHS[c.sc.glyph];
+  dyn.push({ k: tr.length, fn: glyphXYZ });
+  tr.push({ type: 'mesh3d', name: glyphName(), x: gx, y: gy, z: gz, i: g.I, j: g.J, k: g.K, facecolor: g.part.map(p => pc[p]),
+            flatshading: true, lighting: { ambient: 0.65, diffuse: 0.6, specular: 0.15, roughness: 0.6 }, hoverinfo: 'skip', showscale: false });
+  DYN3 = dyn;
+  const sa = (title, k) => ({ title: { text: title, font: { size: 12, color: th.text2 } }, range: [G3.lo[k], G3.hi[k]], autorange: false,
+    backgroundcolor: th.bg, showbackground: true, gridcolor: th.grid, zerolinecolor: th.border, tickfont: { size: 10, color: th.muted } });
+  const layout = Object.assign(baseLayout(th, 'scene' + c.demo.id + S.scale), { margin: { l: 0, r: 0, t: 30, b: 0 },
+    scene: { aspectmode: 'manual', aspectratio: { x: G3.a[0], y: G3.a[1], z: G3.a[2] }, xaxis: sa(lb[0], 0), yaxis: sa(lb[1], 1), zaxis: sa(lb[2], 2),
+             camera: { eye: camEye(), up: { x: 0, y: 0, z: 1 } }, bgcolor: th.bg, uirevision: 'scene' + c.demo.id + S.scale } });
+  Plotly.react('scene-plot', tr, layout, CFG);
+  hookClick('scene-plot');
+  S.stale3d = false;
+}
+function update3D() {
+  const r = DYN3.map(d => d.fn(S.i));
+  Plotly.restyle('scene-plot', { x: r.map(a => a[0]), y: r.map(a => a[1]), z: r.map(a => a[2]) }, DYN3.map(d => d.k));
+}
+
+function hookClick(id) {
+  const div = $(id);
+  if (div._gncHooked) return; div._gncHooked = true;
+  div.on('plotly_click', ev => {
+    const pt = ev && ev.points && ev.points[0];
+    if (C && C.rocket && pt && typeof pt.customdata === 'number') seek(pt.customdata);
+  });
+}
+
+// ------------------------------------------------------------------ time
+function seek(T) { S.i = idxAt(T); S.simT = C.t[S.i]; updateTime(true); }
+function setIdx(i) { S.i = clamp(i, 0, C.N - 1); S.simT = C.t[S.i]; updateTime(true); }
+function updateTime(force) {
+  if (!C || !C.rocket) return;
+  const t = C.t[S.i], tEnd = C.t[C.N - 1];
+  $('time-slider').value = S.i;
+  $('time-label').textContent = `t = ${t.toFixed(2)} s / ${tEnd.toFixed(1)} s`;
+  if (S.view === '2d' && !S.stale2d) update2D();
+  if (S.view === '3d' && !S.stale3d) update3D();
+  document.querySelectorAll('#event-chips .chip').forEach(ch => ch.classList.toggle('past', +ch.dataset.t <= t + 1e-9));
+  const now = performance.now();
+  if (force || !S.playing || now - S.lastCursor > 90) {   // cursor relayouts are the costly part; throttle while playing
+    S.lastCursor = now;
+    PLOTS.forEach(p => { if (p.time) Plotly.relayout(p.div, { 'shapes[0].x0': t, 'shapes[0].x1': t }); });
+  }
+}
+function tick(ts) {
+  if (!S.playing) return;
+  if (S.lastWall == null) S.lastWall = ts;
+  S.simT += (ts - S.lastWall) / 1000 * S.speed; S.lastWall = ts;
+  const tEnd = C.t[C.N - 1];
+  if (S.simT >= tEnd) { S.i = C.N - 1; updateTime(true); pause(); return; }
+  S.i = floorIdx(S.simT); updateTime(false);
+  requestAnimationFrame(tick);
+}
+function play() {
+  if (!C || !C.rocket || C.N < 2) return;
+  if (S.i >= C.N - 1) { S.i = 0; S.simT = C.t[0]; }
+  S.playing = true; S.lastWall = null; $('play-btn').innerHTML = '&#10074;&#10074;'; $('play-btn').setAttribute('aria-label', 'Pause');
+  requestAnimationFrame(tick);
+}
+function pause() { S.playing = false; $('play-btn').innerHTML = '&#9654;'; $('play-btn').setAttribute('aria-label', 'Play'); updateTime(true); }
+const togglePlay = () => S.playing ? pause() : play();
+
+// ------------------------------------------------------------------ view switching
+function setView(v) {
+  if (!C || !C.rocket) return;
+  S.view = v;
+  document.querySelectorAll('#view-toggle button').forEach(b => b.classList.toggle('on', b.dataset.view === v));
+  $('view2d').hidden = v !== '2d'; $('view3d').hidden = v !== '3d';
+  $('scale-toggle').hidden = v !== '3d';
+  $('view-hint').textContent = v === '2d' ? 'Projections of the trajectory · click a trajectory to jump to that time'
+                                          : `Drag to orbit, scroll to zoom · ${glyphName().toLowerCase()} glyph oriented by the attitude quaternion`;
+  if (v === '2d') { if (S.stale2d) build2D(); else DYN2.forEach(d => Plotly.Plots.resize(d.div)); }
+  else { if (S.stale3d) build3D(); else Plotly.Plots.resize('scene-plot'); }
+  updateTime(true);
+}
+
+// ------------------------------------------------------------------ panels
+function paragraphs(text) {
+  const f = document.createDocumentFragment();
+  String(text || '').split(/\n\s*\n/).filter(s => s.trim()).forEach(s => f.append(el('p', null, s.trim())));
+  return f;
+}
+function buildMetrics(v) {
+  const box = $('metrics'); box.innerHTML = '';
+  Object.entries(v.metrics || {}).forEach(([k, val]) => {
+    const m = /^(.*?)\s*\[([^\]]+)\]\s*$/.exec(k), card = el('div', 'card metric');
+    card.append(el('div', 'k', m ? m[1] : k));
+    const vd = el('div', 'v', fmt(val)); if (m && val != null && val !== '') vd.append(el('span', 'u', m[2]));
+    card.append(vd); box.append(card);
+  });
+}
+function buildPlots(v) {
+  PLOTS.forEach(p => Plotly.purge(p.div)); PLOTS = [];
+  const grid = $('plots'), th = theme(); grid.innerHTML = '';
+  (v.plots || []).forEach((pl, n) => {
+    const card = el('div', 'card plot-card'), div = el('div', 'plot');
+    card.append(el('h3', null, pl.title || pl.id || ''), div); grid.append(card);
+    const time = !!(C.rocket && (pl.time === true || (pl.time !== false && /^\s*(t|time)\b/i.test(pl.xlabel || ''))));
+    const series = pl.series || [];
+    const traces = series.map((s, k) => ({ type: 'scatter', mode: s.mode || 'lines', name: s.name || ('series ' + (k + 1)), x: s.x, y: s.y,
+      line: { color: th.s[k % 8], width: 2 }, marker: { color: th.s[k % 8], size: 8, line: { color: th.bg, width: 1 } } }));
+    const lay = Object.assign(baseLayout(th, 'plot' + C.demo.id + (pl.id || n)), { showlegend: series.length > 1,
+      margin: { l: 56, r: 14, t: series.length > 1 ? 30 : 12, b: 42 }, xaxis: axis(th, pl.xlabel), yaxis: axis(th, pl.ylabel) });
+    if (time) {
+      lay.shapes = [{ type: 'line', xref: 'x', yref: 'paper', x0: C.t[S.i], x1: C.t[S.i], y0: 0, y1: 1, line: { color: th.text2, width: 1.2, dash: 'dot' } }];
+      lay.hovermode = 'x unified';
+    }
+    Plotly.newPlot(div, traces, lay, CFG);
+    if (time) div.on('plotly_click', ev => { const pt = ev && ev.points && ev.points[0]; if (pt && typeof pt.x === 'number') seek(pt.x); });
+    PLOTS.push({ div, time });
+  });
+}
+function buildTables(v) {
+  const box = $('tables'); box.innerHTML = '';
+  (v.tables || []).forEach(tb => {
+    const card = el('div', 'card table-card'), table = el('table'), thead = el('thead'), tbody = el('tbody'), hr = el('tr');
+    card.append(el('h3', 'section-title', tb.title || ''));
+    (tb.columns || []).forEach(cn => hr.append(el('th', null, cn))); thead.append(hr);
+    (tb.rows || []).forEach(row => { const tr = el('tr'); row.forEach(cell => tr.append(el('td', typeof cell === 'number' ? 'num' : null, fmt(cell)))); tbody.append(tr); });
+    table.append(thead, tbody); card.append(table); box.append(card);
+  });
+}
+function buildEvents(v) {
+  const chips = $('event-chips'), box = $('analysis-events'); chips.innerHTML = ''; box.innerHTML = '';
+  const evs = (v.events || []).slice().sort((a, b) => a.t - b.t);
+  if (C.rocket) {
+    evs.forEach(e => { const ch = el('button', 'chip'); ch.type = 'button'; ch.dataset.t = e.t; ch.title = 'Jump to ' + e.label;
+      ch.append(el('b', null, fmt(e.t) + ' s'), e.label); ch.onclick = () => { pause(); seek(e.t); }; chips.append(ch); });
+  } else if (evs.length) {
+    const card = el('div', 'card text-card'); card.append(el('h3', 'section-title', 'Events'));
+    evs.forEach(e => card.append(el('div', null, `${fmt(e.t)} s  ${e.label}`))); box.append(card);
+  }
+  chips.hidden = !evs.length || !C.rocket;
+}
+function buildNotes(v) {
+  const box = $('notes'); box.innerHTML = '';
+  if (v.notes) { const card = el('div', 'card text-card'); card.append(el('h3', 'section-title', 'Notes'), el('div', null, v.notes)); box.append(card); }
+}
+
+// ------------------------------------------------------------------ selection
+function buildSidebar() {
+  const nav = $('demo-list'), groups = new Map();
+  DEMOS.forEach((d, k) => { const g = d.group || 'Other'; if (!groups.has(g)) groups.set(g, []); groups.get(g).push(k); });
+  groups.forEach((ks, g) => {
+    nav.append(el('div', 'group-label', g));
+    ks.forEach(k => {
+      const d = DEMOS[k], b = el('button', 'demo-btn'); b.type = 'button'; b.dataset.k = k; b.dataset.id = d.id;
+      b.append(el('span', null, d.title));
+      const analysis = d.variants.every(v => !v.rocket);
+      if (analysis || d.variants.length > 1) b.append(el('span', 'tag', analysis ? 'analysis' : d.variants.length + ' variants'));
+      b.onclick = () => selectDemo(k); nav.append(b);
+    });
+  });
+  if (!DEMOS.length) $('demo-list').append(el('div', 'empty', 'No demos in results/index.json'));
+}
+function selectDemo(k) { S.d = k; S.v = 0; render(false); }
+function selectVariant(j) { S.v = j; render(true); }
+function render(keepTime) {
+  if (S.playing) S.playing = false;
+  const demo = DEMOS[S.d]; if (!demo) return;
+  const v = demo.variants[S.v];
+  const prevT = (keepTime && C && C.rocket) ? C.t[S.i] : null;
+  C = makeCtx(demo, v);
+  document.querySelectorAll('.demo-btn').forEach(b => b.classList.toggle('on', +b.dataset.k === S.d));
+  $('demo-group').textContent = demo.group || ''; $('demo-title').textContent = demo.title; document.title = demo.title + ' · GNC Dashboard';
+  const desc = $('demo-desc'); desc.innerHTML = ''; desc.append(paragraphs(demo.description));
+  const tabs = $('variant-tabs'); tabs.innerHTML = '';
+  demo.variants.forEach((vv, j) => { const b = el('button', 'tab' + (j === S.v ? ' on' : ''), vv.label || vv.id); b.type = 'button'; b.dataset.id = vv.id;
+    b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', j === S.v); b.onclick = () => selectVariant(j); tabs.append(b); });
+  tabs.hidden = demo.variants.length < 2;
+  const has = !!C.rocket;
+  $('main-view').hidden = !has;
+  document.querySelectorAll('#view-toggle button').forEach(b => { b.disabled = !has; b.title = has ? '' : 'No trajectory in this demo (analysis only)'; });
+  if (has) {
+    S.i = prevT != null ? idxAt(prevT) : 0; S.simT = C.t[S.i];
+    $('time-slider').max = C.N - 1;
+    S.stale2d = S.stale3d = true;
+    S.scale = autoScale();
+    setSpeed(SPEEDS.reduce((b, sp) => Math.abs(Math.log(sp * 30 / Math.max(C.t[C.N - 1] - C.t[0], 1))) < Math.abs(Math.log(b * 30 / Math.max(C.t[C.N - 1] - C.t[0], 1))) ? sp : b, 1));  // ~30 s playback
+    document.querySelectorAll('#scale-toggle button').forEach(x => x.classList.toggle('on', x.dataset.scale === S.scale));
+  } else document.querySelectorAll('#view-toggle button').forEach(b => b.classList.remove('on'));
+  buildEvents(v); buildMetrics(v); buildTables(v); buildNotes(v);
+  buildPlots(v);
+  if (has) setView(S.view);
+  pause();
+}
+
+function setSpeed(sp) { S.speed = sp; document.querySelectorAll('#speed-seg button').forEach(x => x.classList.toggle('on', +x.dataset.speed === sp)); }
+
+// ------------------------------------------------------------------ wiring
+SPEEDS.forEach(sp => { const b = el('button', sp === S.speed ? 'on' : null, sp + '×'); b.type = 'button'; b.dataset.speed = sp;
+  b.onclick = () => setSpeed(sp);
+  $('speed-seg').append(b); });
+document.querySelectorAll('#view-toggle button').forEach(b => b.onclick = () => setView(b.dataset.view));
+document.querySelectorAll('#scale-toggle button').forEach(b => b.onclick = () => { S.scale = b.dataset.scale; S.stale3d = true;
+  document.querySelectorAll('#scale-toggle button').forEach(x => x.classList.toggle('on', x === b)); setView('3d'); });
+document.querySelector('#scale-toggle button[data-scale="true"]').classList.add('on');
+$('play-btn').onclick = togglePlay;
+let rsz = null; window.addEventListener('resize', () => { clearTimeout(rsz); rsz = setTimeout(() => { if (C && C.rocket && S.view === '2d') { S.stale2d = true; setView('2d'); } }, 250); });
+$('time-slider').oninput = e => setIdx(+e.target.value);
+$('theme-btn').onclick = () => {
+  S.theme = S.theme === 'dark' ? 'light' : 'dark'; document.documentElement.dataset.theme = S.theme;
+  try { localStorage.setItem('gnc-theme', S.theme); } catch (e) {}
+  $('theme-btn').textContent = S.theme === 'dark' ? 'Light mode' : 'Dark mode';
+  render(true);
+};
+$('theme-btn').textContent = S.theme === 'dark' ? 'Light mode' : 'Dark mode';
+document.addEventListener('keydown', e => {
+  if (e.target.closest && e.target.closest('select, textarea, input[type=text]')) return;
+  if (!C || !C.rocket) return;
+  if (e.code === 'Space') { e.preventDefault(); if (e.target.blur) e.target.blur(); togglePlay(); }
+  else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+    e.preventDefault(); if (S.playing) pause();
+    setIdx(S.i + (e.key === 'ArrowRight' ? 1 : -1) * (e.shiftKey ? 10 : 1));
+  }
+});
+$('build-info').textContent = `Built ${DATA.generated} from ${DATA.source}`;
+buildSidebar();
+if (DEMOS.length) selectDemo(0);
+window.GNC = { S, quatR, bodyAxes: i => bodyAxes(i), selectDemo, selectVariant, setView, play, pause, seek, ctx: () => C };
+})();
+</script>
+</body>
+</html>
